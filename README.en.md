@@ -92,7 +92,7 @@ Tests cover stable-cycle startup optimization, continuous morale tracking, uniqu
 
 ## Deployment
 
-- Mainland-oriented primary site: [EdgeOne Makers](https://endfield-is-dphcpiwc5y3b.edgeone.dev/)
+- Mainland-oriented primary site: [EdgeOne Makers](https://endfield-is-dp0gzaz4ler3.edgeone.dev/)
 - Overseas and fallback site: [Vercel](https://endfield-is.vercel.app/)
 
 Both deployments track the repository's `main` branch and publish automatically. EdgeOne uses `npm install`, `npm run build`, and the `dist/client` output directory. Vercel settings are defined in [`vercel.json`](./vercel.json).

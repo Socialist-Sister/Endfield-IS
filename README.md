@@ -92,7 +92,7 @@ npm run test:sites
 
 ## 部署
 
-- 国内主站：[EdgeOne Makers](https://endfield-is-dphcpiwc5y3b.edgeone.dev/)
+- 国内主站：[EdgeOne Makers](https://endfield-is-dp0gzaz4ler3.edgeone.dev/)
 - 海外与备用站：[Vercel](https://endfield-is.vercel.app/)
 
 两个站点均连接本仓库的 `main` 分支并自动构建发布。EdgeOne 使用 `npm install`、`npm run build` 和输出目录 `dist/client`；Vercel 的构建设置见 [`vercel.json`](./vercel.json)。
