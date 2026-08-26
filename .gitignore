@@ -11,3 +11,6 @@ dist/
 Thumbs.db
 deployment-preview.png
 
+# Tencent Cloud EdgeOne
+.edgeone/*
+.tef_dist/*
