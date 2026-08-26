@@ -92,4 +92,7 @@ Tests cover stable-cycle startup optimization, continuous morale tracking, uniqu
 
 ## Deployment
 
-Vercel is connected to this repository. Every push to `main` automatically builds and publishes the production site. Build settings are defined in [`vercel.json`](./vercel.json).
+- Mainland-oriented primary site: [EdgeOne Makers](https://endfield-is-dphcpiwc5y3b.edgeone.dev/)
+- Overseas and fallback site: [Vercel](https://endfield-is.vercel.app/)
+
+Both deployments track the repository's `main` branch and publish automatically. EdgeOne uses `npm install`, `npm run build`, and the `dist/client` output directory. Vercel settings are defined in [`vercel.json`](./vercel.json).
