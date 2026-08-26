@@ -60,6 +60,10 @@ Results are estimates based on the current dataset and model, not real-time game
 
 React 19, Vite 6, Phosphor Icons, Web Workers, the Node.js native test runner, and Vercel.
 
+## Asset Notice
+
+Operator portraits are bundled as local static assets so the interface does not depend on a third-party image service at runtime. Portrait mapping was cross-checked against the public [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) metadata. Character artwork remains the property of Hypergryph / GRYPHLINE; this project claims no ownership of those assets.
+
 ## Local Development
 
 Requires Node.js 20 or newer.

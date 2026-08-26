@@ -112,9 +112,15 @@ function Metric({ label, value, note }) {
 }
 
 function OperatorMark({ operator, muted = false }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const symbolIndex = operator.id.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0) % OPERATOR_SYMBOLS.length;
   const Symbol = OPERATOR_SYMBOLS[symbolIndex];
-  return <span className={`operator-mark ${muted ? "operator-mark--muted" : ""}`} aria-hidden="true"><Symbol size={18} weight="bold" /></span>;
+  return (
+    <span className={`operator-mark ${muted ? "operator-mark--muted" : ""}`} aria-hidden="true">
+      {!imageFailed && <img src={operator.avatar} alt="" loading="lazy" onError={() => setImageFailed(true)} />}
+      {imageFailed && <Symbol className="operator-mark__fallback" size={18} weight="bold" />}
+    </span>
+  );
 }
 
 export function App() {

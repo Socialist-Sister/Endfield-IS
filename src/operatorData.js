@@ -19,7 +19,13 @@ const clueSkill = (name, clue, unlock = 1) => ({
   ],
 });
 
-const operator = (id, name, rarity, skills) => ({ id, name, rarity, skills });
+const operator = (id, name, rarity, skills) => ({
+  id,
+  name,
+  rarity,
+  skills,
+  avatar: `/operators/${id}.webp`,
+});
 
 export const FACILITIES = ["制造舱", "培养舱", "会客室", "总控中枢"];
 

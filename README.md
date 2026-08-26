@@ -60,6 +60,10 @@
 
 React 19、Vite 6、Phosphor Icons、Web Worker、Node.js 原生测试运行器和 Vercel。
 
+## 素材说明
+
+干员头像以本地静态资源随项目发布，避免运行时依赖第三方图片服务。头像对应关系参考了 [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) 的公开映射；角色与美术素材版权归 Hypergryph / GRYPHLINE 所有，本项目不主张对这些素材拥有权利。
+
 ## 本地开发
 
 需要 Node.js 20 或更高版本。

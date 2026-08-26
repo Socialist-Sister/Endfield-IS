@@ -117,13 +117,19 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .select-all-button.is-active { border-color: var(--ink); background: var(--yellow); color: var(--ink); }
 .operator-result-count { grid-column: 1 / -1; min-height: 15px; color: #676c69; font-family: var(--font-utility); font-size: 11px; text-align: right; }
 .operator-list { min-height: 0; flex: 1 1 0; margin: 0 14px; border-top: 1px solid #696e6b; border-bottom: 1px solid #696e6b; display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); align-content: start; gap: 1px; overflow-x: hidden; overflow-y: auto; background: #8a8f8c; scrollbar-color: var(--ink) #c8cbc8; scrollbar-width: thin; }
-.operator-card { min-width: 0; min-height: 130px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; background: #f7f7f3; color: var(--ink); opacity: .72; transition: color .2s, background-color .2s, opacity .2s, transform .3s; }
+.operator-card { min-width: 0; min-height: 130px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; background: #f7f7f3; color: var(--ink); opacity: .86; transition: color .2s, background-color .2s, opacity .2s, transform .3s; }
 .operator-card:hover { opacity: 1; transform: translateX(3px); }
 .operator-card.is-selected { background: var(--ink); color: white; opacity: 1; box-shadow: inset 5px 0 0 var(--yellow); }
 .operator-toggle { min-width: 0; padding: 0; border: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr) 20px; align-items: center; gap: 9px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.operator-mark { width: 36px; height: 36px; border: 1px solid #6d726f; display: grid; place-items: center; background: #d7dad7; color: var(--ink); }
+.operator-mark { position: relative; width: 36px; height: 36px; border: 1px solid #6d726f; display: grid; place-items: center; overflow: hidden; background: #d7dad7; color: var(--ink); }
+.operator-mark img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; filter: saturate(.88) contrast(1.04); transition: filter .2s, opacity .2s, transform .3s; }
+.operator-card:hover .operator-mark img { transform: scale(1.045); }
+.operator-card:not(.is-selected) .operator-mark img { opacity: 1; filter: grayscale(.08) saturate(.82) contrast(1.03); }
 .operator-card.is-selected .operator-mark { border-color: var(--yellow); background: #2a2d2c; color: white; }
+.operator-card.is-selected .operator-mark img { opacity: 1; filter: saturate(.96) contrast(1.06); }
 .operator-mark--muted { color: #858a87; }
+.operator-mark--muted img { opacity: .56; filter: grayscale(.7) saturate(.35) contrast(.96); }
+.operator-mark__fallback { display: block; }
 .operator-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .operator-copy > span { display: flex; align-items: baseline; gap: 5px; }
 .operator-copy strong { font-size: 13px; }

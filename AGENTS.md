@@ -21,6 +21,7 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 - Use a two-step single-screen flow: show either configuration or results, never both at once. Calculating advances to the full-width result view; “修改配置” returns to configuration.
 - In fixed-login mode, every manually entered login time is a distinct shift node with its own rotated operator assignment; never collapse this mode into one static team.
 - Treat the current assignable roster as 29 operators. Exclude both Administrator variants because the protagonist has no confirmed logistics assignment data.
+- Use locally bundled, consistently framed square operator portraits everywhere an operator is identified in configuration or results. Keep the abstract symbol only as an image-load fallback; do not hotlink runtime portrait assets.
 - Each operator defaults to E4. Per-operator E0–E4 selection controls automatic unlocks and upgrades for up to two infrastructure skills and must affect assignment scoring.
 - Administrator is excluded from the assignable roster rather than shown as pending.
 - AFK results do not use a time axis. The result summary should prioritize concrete daily outputs over abstract fit scores or roster counts.
