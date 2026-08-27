@@ -23,6 +23,8 @@ const ROOM_META = [
   { id: "reception", name: "会客室", type: "会客室", recipe: "线索收集" },
   { id: "control", name: "总控中枢", type: "总控中枢", recipe: "全局恢复" },
 ];
+const RESULT_ROOM_ORDER = ["control", "reception", "manufacture-a", "manufacture-b", "growth"];
+const RESULT_ROOM_META = RESULT_ROOM_ORDER.map((roomId) => ROOM_META.find((room) => room.id === roomId));
 const GROWTH_OPTIONS = {
   "rare-mineral": { label: "矿物质料" },
   vitrified: { label: "晶植质料" },
@@ -30,10 +32,6 @@ const GROWTH_OPTIONS = {
 };
 const emptyAssignments = () => Object.fromEntries(ROOM_META.map((room) => [room.id, []]));
 const emptyShiftAssignments = (shiftCount) => Object.fromEntries(ROOM_META.map((room) => [room.id, Array.from({ length: shiftCount }, () => [])]));
-function hasMoodReduction(operator) {
-  return operator.activeSkills.some((skill) => skill.category === "mood-drop");
-}
-
 function getRoomRecipe(room, manufacturingRecipes, growthCategory, summary) {
   if (room.type === "制造舱") {
     return MANUFACTURING_RECIPES[manufacturingRecipeId(room.id, manufacturingRecipes)].label;
@@ -41,12 +39,6 @@ function getRoomRecipe(room, manufacturingRecipes, growthCategory, summary) {
   if (room.id === "reception") return `预计 ${summary.clues.toFixed(2)} 线索/日`;
   if (room.id === "control") return `休息恢复 ${summary.moodRecovery.toFixed(1)}%/小时`;
   return GROWTH_OPTIONS[growthCategory].label;
-}
-
-function getMoodGroupLabel(team, room) {
-  if (room.id === "control" || !team.length) return null;
-  const moodOperators = team.filter(hasMoodReduction).length;
-  return moodOperators ? `${moodOperators}/${team.length} 减耗组` : "无减耗组";
 }
 
 function getAssignmentSkills(operator, room, manufacturingRecipes, growthCategory, team = []) {
@@ -136,7 +128,7 @@ export function App() {
   const [facilityFilter, setFacilityFilter] = useState("all");
   const [ownedOnly, setOwnedOnly] = useState(false);
   const [manufacturingRecipes, setManufacturingRecipes] = useState(() => ({ ...DEFAULT_MANUFACTURING_RECIPES }));
-  const [growthCategory, setGrowthCategory] = useState("vitrified");
+  const [growthCategory, setGrowthCategory] = useState("rare-mineral");
   const [axisScope, setAxisScope] = useState("shared");
   const [loginTimes, setLoginTimes] = useState(["08:00", "22:30"]);
   const [newTime, setNewTime] = useState("13:00");
@@ -328,7 +320,6 @@ export function App() {
                   <label className="operator-filter"><span>设施</span><select value={facilityFilter} onChange={(event) => setFacilityFilter(event.target.value)}><option value="all">全部设施</option>{FACILITIES.map((facility) => <option value={facility} key={facility}>{facility}</option>)}</select></label>
                   <button className={`owned-filter ${ownedOnly ? "is-active" : ""}`} aria-pressed={ownedOnly} onClick={() => setOwnedOnly((current) => !current)}>仅看已拥有</button>
                   <button className={`select-all-button ${allOperatorsSelected ? "is-active" : ""}`} aria-pressed={allOperatorsSelected} onClick={toggleAllOperators}>{allOperatorsSelected ? "全不选" : `全选 ${OPERATORS.length}`}</button>
-                  <span className="operator-result-count">显示 {filteredOperators.length}/{OPERATORS.length}</span>
                 </div>
                 <div className="operator-list">
                   {filteredOperators.map((operator) => {
@@ -380,17 +371,16 @@ export function App() {
             <section className="timeline-section">
               <div className="section-label-row"><div><span>ASSIGNMENT PLAN</span><h3>{mode === "afk" ? "算法推荐启动轴" : "按上线节点进行整组换班"}</h3></div><span className="mode-badge">{mode === "afk" ? AXIS_SCOPES[axisScope].shortLabel : `每日 ${loginTimes.length} 次`}</span></div>
               <div className={`assignment-board ${mode === "shift" ? "assignment-board--shifts" : "assignment-board--afk"}`}>
-                {ROOM_META.map((room, roomIndex) => {
+                {RESULT_ROOM_META.map((room, roomIndex) => {
                   const roomOperators = assignments[room.id];
                   const roomSummary = dailySummary.rooms[room.id];
                   const startOffsets = mode === "afk" ? (dailySummary.startup.offsetsByRoom[room.id] ?? []) : [];
                   const scheduledOperators = roomOperators
                     .map((operator, operatorIndex) => ({ operator, startOffset: startOffsets[operatorIndex] ?? 0, operatorIndex }))
                     .sort((left, right) => left.startOffset - right.startOffset || left.operatorIndex - right.operatorIndex);
-                  const moodGroup = mode === "afk" ? getMoodGroupLabel(roomOperators, room) : null;
                   return (
                     <article className="facility-lane" key={room.id}>
-                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, manufacturingRecipes, growthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}{moodGroup && <em>{moodGroup}</em>}</span></div>
+                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, manufacturingRecipes, growthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}</span></div>
                       {mode === "afk" ? (
                         <div className="lane-assignments">{scheduledOperators.length ? scheduledOperators.map(({ operator, startOffset }, index) => <div className="assignment-slot" key={operator.id}><div className="assignment-time" aria-label={formatStartOffset(startOffset)} title={formatStartOffset(startOffset)}>{formatStartOffsetLabel(startOffset)}</div><div className="assignment-cell" style={{ "--delay": `${index * 55 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={manufacturingRecipes} growthCategory={growthCategory} team={roomOperators} /></span></div></div>) : <div className="empty-lane">当前干员数量不足</div>}</div>
                       ) : (

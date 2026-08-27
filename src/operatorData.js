@@ -27,7 +27,7 @@ const operator = (id, name, rarity, skills) => ({
   avatar: `/operators/${id}.webp`,
 });
 
-export const FACILITIES = ["制造舱", "培养舱", "会客室", "总控中枢"];
+export const FACILITIES = ["总控中枢", "会客室", "制造舱", "培养舱"];
 
 export const OPERATORS = [
   operator("arcane", "诀", 6, [

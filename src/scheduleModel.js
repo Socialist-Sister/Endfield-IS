@@ -20,7 +20,7 @@ export const MANUFACTURING_RECIPES = {
   },
 };
 export const DEFAULT_MANUFACTURING_RECIPES = {
-  "manufacture-a": "weapon-inspection-kit",
+  "manufacture-a": "advanced-cognitive-carrier",
   "manufacture-b": "advanced-battle-record",
 };
 export const GROWTH_PRODUCT_HOURS = 61 + (6 / 60) + (40 / 3600);

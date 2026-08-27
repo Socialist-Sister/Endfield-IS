@@ -110,12 +110,16 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .operator-filter { padding-left: 10px; }
 .operator-filter > span { color: #686d6a; font-size: 11px; letter-spacing: .04em; }
 .operator-filter select { min-width: 0; flex: 1; align-self: stretch; padding: 0 7px; border: 0; border-left: 1px solid #929794; background: #e1e3e0; color: var(--ink); font-size: 12px; }
-.owned-filter, .select-all-button { min-height: 40px; padding: 0 13px; border: 1px solid #6f7471; border-radius: 999px; background: transparent; color: #444946; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, background-color .2s, border-color .2s, transform .3s; }
+.operator-filter select:focus-visible,
+.promotion-control select:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+.owned-filter, .select-all-button { min-height: 40px; padding: 0 13px; border: 1px solid #6f7471; border-radius: 0; background: transparent; color: #444946; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, background-color .2s, border-color .2s, transform .3s; }
 .owned-filter:hover, .select-all-button:hover { transform: translateX(2px); border-color: #000; }
 .owned-filter.is-active { border-color: var(--ink); background: var(--ink); color: white; }
 .select-all-button { min-width: 92px; border-color: #a99f00; color: #665f00; }
 .select-all-button.is-active { border-color: var(--ink); background: var(--yellow); color: var(--ink); }
-.operator-result-count { grid-column: 1 / -1; min-height: 15px; color: #676c69; font-family: var(--font-utility); font-size: 11px; text-align: right; }
 .operator-list { min-height: 0; flex: 1 1 0; margin: 0 14px; border-top: 1px solid #696e6b; border-bottom: 1px solid #696e6b; display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); align-content: start; gap: 1px; overflow-x: hidden; overflow-y: auto; background: #8a8f8c; scrollbar-color: var(--ink) #c8cbc8; scrollbar-width: thin; }
 .operator-card { min-width: 0; min-height: 130px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; background: #f7f7f3; color: var(--ink); opacity: .86; transition: color .2s, background-color .2s, opacity .2s, transform .3s; }
 .operator-card:hover { opacity: 1; transform: translateX(3px); }
@@ -177,7 +181,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .result-actions { display: flex; align-items: center; gap: 14px; }
 .result-status { display: flex; align-items: center; gap: 7px; color: #4f5451; font-size: 11px; }
 .status-dot { width: 8px; height: 8px; background: #b5aa00; box-shadow: 0 0 0 3px #f8f486; }
-.edit-config-button { height: 40px; padding: 0 14px; border: 1px solid #000; border-radius: 999px; display: flex; align-items: center; gap: 7px; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, background-color .2s, transform .3s; }
+.edit-config-button { height: 40px; padding: 0 14px; border: 1px solid #000; border-radius: 0; display: flex; align-items: center; gap: 7px; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, background-color .2s, transform .3s; }
 .edit-config-button:hover { background: var(--ink); color: white; transform: translateX(-3px); }
 .metric-row { margin-top: 26px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid #000; background: #000; gap: 1px; }
 .metric { position: relative; min-height: 138px; padding: 18px 17px 16px; display: flex; flex-direction: column; justify-content: space-between; background: #eceeeb; animation: metric-reveal .45s ease-out both; }
@@ -201,7 +205,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .section-label-row > div { align-self: stretch; padding: 8px 16px 7px; border-left: 6px solid #b5aa00; display: flex; flex-direction: column; justify-content: center; }
 .section-label-row span { color: #626764; font-family: var(--font-display); font-size: 9px; font-weight: 700; letter-spacing: .15em; }
 .section-label-row h3 { margin: 3px 0 0; font-size: 16px; }
-.mode-badge { padding: 7px 11px; border: 1px solid #656a67; border-radius: 999px; color: var(--ink) !important; font-size: 11px !important; letter-spacing: .04em !important; }
+.mode-badge { padding: 7px 11px; border: 1px solid #656a67; border-radius: 0; color: var(--ink) !important; font-size: 11px !important; letter-spacing: .04em !important; }
 .assignment-board { position: relative; border: 1px solid #000; border-top: 0; }
 .assignment-board--afk, .assignment-board--shifts { margin-top: 16px; border-top: 1px solid #000; }
 .assignment-board--shifts { overflow-x: auto; }

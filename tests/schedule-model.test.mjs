@@ -7,6 +7,14 @@ import { optimizeAfkAssignments, optimizeShiftAssignments, prepareCandidate } fr
 const skill = (category, value) => ({ category, activeTier: { value } });
 const operator = (id, skills) => ({ id, activeSkills: skills });
 const DEFAULT_RECIPES = { ...DEFAULT_MANUFACTURING_RECIPES };
+const WEAPON_RECIPES = { ...DEFAULT_RECIPES, "manufacture-a": "weapon-inspection-kit" };
+
+test("default manufacturing recipes match the configuration defaults", () => {
+  assert.deepEqual(DEFAULT_RECIPES, {
+    "manufacture-a": "advanced-cognitive-carrier",
+    "manufacture-b": "advanced-battle-record",
+  });
+});
 
 test("three 10% operators produce the documented 286% factor", () => {
   const team = [1, 2, 3].map((id) => operator(String(id), [skill("weapon-exp", 10)]));
@@ -51,11 +59,11 @@ test("automatic shared axis is not worse than either former reference pattern", 
   const manufacturingTeam = [1, 2, 3].map((id) => operator(`w${id}`, [skill("weapon-exp", 30)]));
   const controlTeam = [1, 2, 3].map((id) => operator(`c${id}`, [skill("mood-regen", 16)]));
   const assignments = { "manufacture-a": manufacturingTeam, control: controlTeam };
-  const optimized = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes: DEFAULT_RECIPES, axisScope: "shared" });
+  const optimized = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes: WEAPON_RECIPES, axisScope: "shared" });
   const evaluate = (axis) => evaluateStartupOffsets({
     rooms,
     assignments,
-    manufacturingRecipes: DEFAULT_RECIPES,
+    manufacturingRecipes: WEAPON_RECIPES,
     offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, axis])),
     warmupDays: optimized.warmupDays,
     sampleDays: optimized.sampleDays,
@@ -70,11 +78,11 @@ test("long-window verification catches the tight-stagger mood-cycle pattern", ()
   const manufacturingTeam = [1, 2, 3].map((id) => operator(`mr${id}`, [skill("weapon-exp", 30), skill("mood-drop", 18)]));
   const controlTeam = [1, 2, 3].map((id) => operator(`cr${id}`, [skill("mood-regen", 16)]));
   const assignments = { "manufacture-a": manufacturingTeam, control: controlTeam };
-  const optimized = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes: DEFAULT_RECIPES, axisScope: "shared" });
+  const optimized = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes: WEAPON_RECIPES, axisScope: "shared" });
   const evaluate = (axis) => evaluateStartupOffsets({
     rooms,
     assignments,
-    manufacturingRecipes: DEFAULT_RECIPES,
+    manufacturingRecipes: WEAPON_RECIPES,
     offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, axis])),
     warmupDays: optimized.warmupDays,
     sampleDays: optimized.sampleDays,
@@ -98,7 +106,7 @@ test("three rested groups retain the full multiplicative factor during eight-hou
       control: emptyShifts,
     },
     loginTimes: ["00:00", "08:00", "16:00"],
-    manufacturingRecipes: DEFAULT_RECIPES,
+    manufacturingRecipes: WEAPON_RECIPES,
   });
   assert.ok(Math.abs(result.rooms["manufacture-a"].averageFactor - 2.86) < 1e-9);
   assert.equal(result.rooms["manufacture-a"].coverageRate, 1);
@@ -113,7 +121,7 @@ test("fixed shifts inherit mood instead of resetting a reused team to full", () 
     assignments: {},
     shiftAssignments: { "manufacture-a": [reusedTeam, reusedTeam], control: [[], []] },
     loginTimes: ["08:00", "20:00"],
-    manufacturingRecipes: DEFAULT_RECIPES,
+    manufacturingRecipes: WEAPON_RECIPES,
   });
   assert.ok(result.rooms["manufacture-a"].coverageRate < 1);
   assert.ok(result.rooms["manufacture-a"].averageFactor < 2.86);
