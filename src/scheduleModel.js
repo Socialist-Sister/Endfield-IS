@@ -2,7 +2,27 @@ export const BASE_ASSIGNMENT_BONUS = 0.4;
 export const BASE_MOOD_DRAIN_PER_HOUR = 7;
 export const BASE_MOOD_RECOVERY_PER_HOUR = 12;
 export const MOOD_MAX = 100;
-export const MFG_PRODUCT_HOURS = 9 + (46 / 60) + (40 / 3600);
+export const MANUFACTURING_RECIPES = {
+  "advanced-cognitive-carrier": {
+    label: "高级认知载体",
+    skillCategory: "operator-exp",
+    hours: 24 + (26 / 60) + (40 / 3600),
+  },
+  "advanced-battle-record": {
+    label: "高级作战记录",
+    skillCategory: "operator-exp",
+    hours: 9 + (46 / 60) + (40 / 3600),
+  },
+  "weapon-inspection-kit": {
+    label: "武器检查套组",
+    skillCategory: "weapon-exp",
+    hours: 9 + (46 / 60) + (40 / 3600),
+  },
+};
+export const DEFAULT_MANUFACTURING_RECIPES = {
+  "manufacture-a": "weapon-inspection-kit",
+  "manufacture-b": "advanced-battle-record",
+};
 export const GROWTH_PRODUCT_HOURS = 61 + (6 / 60) + (40 / 3600);
 export const GROWTH_BOX_COUNT = 9;
 export const CLUE_BASE_HOURS = 72;
@@ -59,14 +79,18 @@ export function getShiftDurations(loginTimes) {
   });
 }
 
-function preferredManufacturingCategory(roomId, priority) {
-  if (priority === "weapon-exp") return "weapon-exp";
-  if (priority === "operator-exp") return "operator-exp";
-  return roomId === "manufacture-a" ? "weapon-exp" : "operator-exp";
+export function manufacturingRecipeId(roomId, manufacturingRecipes = DEFAULT_MANUFACTURING_RECIPES) {
+  return manufacturingRecipes?.[roomId]
+    ?? DEFAULT_MANUFACTURING_RECIPES[roomId]
+    ?? "advanced-battle-record";
 }
 
-function roomProductionCategory(room, team, priority, growthCategory) {
-  if (room.type === "制造舱") return preferredManufacturingCategory(room.id, priority);
+export function manufacturingSkillCategory(roomId, manufacturingRecipes = DEFAULT_MANUFACTURING_RECIPES) {
+  return MANUFACTURING_RECIPES[manufacturingRecipeId(roomId, manufacturingRecipes)]?.skillCategory ?? "operator-exp";
+}
+
+function roomProductionCategory(room, team, manufacturingRecipes, growthCategory) {
+  if (room.type === "制造舱") return manufacturingSkillCategory(room.id, manufacturingRecipes);
   if (room.id === "reception") return "clue-rate";
   if (room.id === "control") return null;
   return growthCategory;
@@ -97,27 +121,30 @@ function normalizeRoomStats(accumulator, periodHours) {
   };
 }
 
-function summarizeOutputs(rooms, roomStats, moodRecovery, priority, growthCategory, startup = null) {
+function summarizeOutputs(rooms, roomStats, moodRecovery, manufacturingRecipes, growthCategory, startup = null) {
   const emptyStats = normalizeRoomStats(emptyRoomAccumulator(), 24);
-  const weaponRoom = roomStats["manufacture-a"] ?? emptyStats;
-  const operatorRoom = roomStats["manufacture-b"] ?? emptyStats;
   const receptionRoom = roomStats.reception ?? emptyStats;
   const growthRoom = roomStats.growth ?? emptyStats;
-  const manufacturingHours = [weaponRoom, operatorRoom].map((room) => room.effectiveHoursPerDay);
-  const weaponHours = priority === "weapon-exp"
-    ? manufacturingHours.reduce((sum, hours) => sum + hours, 0)
-    : priority === "operator-exp" ? 0 : manufacturingHours[0];
-  const operatorHours = priority === "operator-exp"
-    ? manufacturingHours.reduce((sum, hours) => sum + hours, 0)
-    : priority === "weapon-exp" ? 0 : manufacturingHours[1];
+  const manufacturing = Object.fromEntries(Object.keys(MANUFACTURING_RECIPES).map((recipeId) => [recipeId, 0]));
+  rooms.filter((room) => room.type === "制造舱").forEach((room) => {
+    const recipeId = manufacturingRecipeId(room.id, manufacturingRecipes);
+    const recipe = MANUFACTURING_RECIPES[recipeId];
+    const effectiveHours = (roomStats[room.id] ?? emptyStats).effectiveHoursPerDay;
+    if (recipe) manufacturing[recipeId] += effectiveHours / recipe.hours;
+  });
   const productionRooms = rooms.filter((room) => room.id !== "control").map((room) => roomStats[room.id]);
   const mean = (key) => productionRooms.length
     ? productionRooms.reduce((sum, room) => sum + room[key], 0) / productionRooms.length
     : 0;
 
   return {
-    weapon: weaponHours / MFG_PRODUCT_HOURS,
-    operator: operatorHours / MFG_PRODUCT_HOURS,
+    cognitive: manufacturing["advanced-cognitive-carrier"],
+    operator: manufacturing["advanced-battle-record"],
+    weapon: manufacturing["weapon-inspection-kit"],
+    manufacturing,
+    manufacturingRecipes: Object.fromEntries(rooms
+      .filter((room) => room.type === "制造舱")
+      .map((room) => [room.id, manufacturingRecipeId(room.id, manufacturingRecipes)])),
     growth: (growthRoom.effectiveHoursPerDay / GROWTH_PRODUCT_HOURS) * GROWTH_BOX_COUNT,
     growthCategory,
     clues: receptionRoom.effectiveHoursPerDay / CLUE_BASE_HOURS,
@@ -131,10 +158,10 @@ function summarizeOutputs(rooms, roomStats, moodRecovery, priority, growthCatego
   };
 }
 
-function buildAfkModel(rooms, assignments, priority, growthCategory) {
+function buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory) {
   return rooms.map((room) => {
     const category = room.type === "制造舱"
-      ? preferredManufacturingCategory(room.id, priority)
+      ? manufacturingSkillCategory(room.id, manufacturingRecipes)
       : room.id === "reception" ? "clue-rate" : room.id === "growth" ? growthCategory : null;
     return {
       room,
@@ -352,8 +379,8 @@ function productionScore(rooms, roomStats) {
   };
 }
 
-function optimizeSharedAxis(rooms, assignments, priority, growthCategory) {
-  const model = buildAfkModel(rooms, assignments, priority, growthCategory);
+function optimizeSharedAxis(rooms, assignments, manufacturingRecipes, growthCategory) {
+  const model = buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory);
   const result = searchAxis((axis) => {
     const offsetsByRoom = Object.fromEntries(rooms.map((room) => [room.id, axis]));
     const simulation = simulateAfkModel(model, offsetsByRoom, searchOptions());
@@ -371,9 +398,9 @@ function optimizeSharedAxis(rooms, assignments, priority, growthCategory) {
   };
 }
 
-function optimizeFacilityAxes(rooms, assignments, priority, growthCategory) {
+function optimizeFacilityAxes(rooms, assignments, manufacturingRecipes, growthCategory) {
   const controlRoom = rooms.find((room) => room.id === "control");
-  const shared = optimizeSharedAxis(rooms, assignments, priority, growthCategory);
+  const shared = optimizeSharedAxis(rooms, assignments, manufacturingRecipes, growthCategory);
   const controlAxis = shared.sharedOffsets;
   let evaluatedCandidates = shared.evaluatedCandidates;
   const offsetsByRoom = Object.fromEntries(rooms.map((room) => [room.id, controlAxis]));
@@ -383,7 +410,7 @@ function optimizeFacilityAxes(rooms, assignments, priority, growthCategory) {
       return;
     }
     const localRooms = controlRoom ? [room, controlRoom] : [room];
-    const localModel = buildAfkModel(localRooms, assignments, priority, growthCategory);
+    const localModel = buildAfkModel(localRooms, assignments, manufacturingRecipes, growthCategory);
     const roomResult = searchAxis((axis) => {
       const simulation = simulateAfkModel(localModel, {
         [room.id]: axis,
@@ -403,7 +430,7 @@ function optimizeFacilityAxes(rooms, assignments, priority, growthCategory) {
     evaluatedCandidates += roomResult.evaluatedCandidates + roomResult.finalists.length;
   });
 
-  const fullModel = buildAfkModel(rooms, assignments, priority, growthCategory);
+  const fullModel = buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory);
   const baselineSimulation = simulateAfkModel(fullModel, shared.offsetsByRoom, {
     warmupHours: FINAL_WARMUP_HOURS,
     sampleHours: FINAL_SAMPLE_HOURS,
@@ -425,10 +452,10 @@ function optimizeFacilityAxes(rooms, assignments, priority, growthCategory) {
   };
 }
 
-export function optimizeStartupAxis({ rooms, assignments, priority, growthCategory = "vitrified", axisScope = "shared" }) {
+export function optimizeStartupAxis({ rooms, assignments, manufacturingRecipes = DEFAULT_MANUFACTURING_RECIPES, growthCategory = "vitrified", axisScope = "shared" }) {
   const optimized = axisScope === "facility"
-    ? optimizeFacilityAxes(rooms, assignments, priority, growthCategory)
-    : optimizeSharedAxis(rooms, assignments, priority, growthCategory);
+    ? optimizeFacilityAxes(rooms, assignments, manufacturingRecipes, growthCategory)
+    : optimizeSharedAxis(rooms, assignments, manufacturingRecipes, growthCategory);
   return {
     scope: axisScope,
     ...optimized,
@@ -439,23 +466,23 @@ export function optimizeStartupAxis({ rooms, assignments, priority, growthCatego
   };
 }
 
-export function evaluateStartupOffsets({ rooms, assignments, priority, growthCategory = "vitrified", offsetsByRoom, warmupDays = 60, sampleDays = 30 }) {
-  const model = buildAfkModel(rooms, assignments, priority, growthCategory);
+export function evaluateStartupOffsets({ rooms, assignments, manufacturingRecipes = DEFAULT_MANUFACTURING_RECIPES, growthCategory = "vitrified", offsetsByRoom, warmupDays = 60, sampleDays = 30 }) {
+  const model = buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory);
   const simulation = simulateAfkModel(model, offsetsByRoom, {
     warmupHours: warmupDays * 24,
     sampleHours: sampleDays * 24,
   });
-  return summarizeOutputs(rooms, simulation.roomStats, simulation.moodRecovery, priority, growthCategory);
+  return summarizeOutputs(rooms, simulation.roomStats, simulation.moodRecovery, manufacturingRecipes, growthCategory);
 }
 
-function simulateAfk({ rooms, assignments, priority, growthCategory, axisScope }) {
-  const startup = optimizeStartupAxis({ rooms, assignments, priority, growthCategory, axisScope });
-  const model = buildAfkModel(rooms, assignments, priority, growthCategory);
+function simulateAfk({ rooms, assignments, manufacturingRecipes, growthCategory, axisScope }) {
+  const startup = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes, growthCategory, axisScope });
+  const model = buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory);
   const simulation = simulateAfkModel(model, startup.offsetsByRoom, {
     warmupHours: FINAL_WARMUP_HOURS,
     sampleHours: FINAL_SAMPLE_HOURS,
   });
-  return summarizeOutputs(rooms, simulation.roomStats, simulation.moodRecovery, priority, growthCategory, startup);
+  return summarizeOutputs(rooms, simulation.roomStats, simulation.moodRecovery, manufacturingRecipes, growthCategory, startup);
 }
 
 function shiftIndexAt(time, starts) {
@@ -473,7 +500,7 @@ function nextShiftBoundary(time, starts) {
   return next === undefined ? ((day + 1) * 24) + starts[0] : (day * 24) + next;
 }
 
-function simulateShiftModel({ rooms, shiftAssignments, loginTimes, priority, growthCategory, warmupHours, sampleHours }) {
+function simulateShiftModel({ rooms, shiftAssignments, loginTimes, manufacturingRecipes, growthCategory, warmupHours, sampleHours }) {
   const starts = [...loginTimes].sort().map(parseClock);
   const totalHours = warmupHours + sampleHours;
   const accumulators = Object.fromEntries(rooms.map((room) => [room.id, emptyRoomAccumulator()]));
@@ -531,7 +558,7 @@ function simulateShiftModel({ rooms, shiftAssignments, loginTimes, priority, gro
     if (measuredDuration > 0) {
       rooms.forEach((room) => {
         const team = activeTeams[room.id];
-        const category = roomProductionCategory(room, team, priority, growthCategory);
+        const category = roomProductionCategory(room, team, manufacturingRecipes, growthCategory);
         const factor = category ? productionFactor(team, category) : 0;
         accumulators[room.id].effectiveHours += factor * measuredDuration;
         accumulators[room.id].coverageHours += (team.length ? 1 : 0) * measuredDuration;
@@ -567,22 +594,22 @@ function simulateShiftModel({ rooms, shiftAssignments, loginTimes, priority, gro
     room.id,
     normalizeRoomStats(accumulators[room.id], sampleHours),
   ]));
-  return summarizeOutputs(rooms, roomStats, recoveryRateHours / sampleHours, priority, growthCategory);
+  return summarizeOutputs(rooms, roomStats, recoveryRateHours / sampleHours, manufacturingRecipes, growthCategory);
 }
 
-export function evaluateShiftAssignments({ rooms, shiftAssignments, loginTimes, priority, growthCategory = "vitrified", warmupDays = 60, sampleDays = 30 }) {
+export function evaluateShiftAssignments({ rooms, shiftAssignments, loginTimes, manufacturingRecipes = DEFAULT_MANUFACTURING_RECIPES, growthCategory = "vitrified", warmupDays = 60, sampleDays = 30 }) {
   return simulateShiftModel({
     rooms,
     shiftAssignments,
     loginTimes,
-    priority,
+    manufacturingRecipes,
     growthCategory,
     warmupHours: warmupDays * 24,
     sampleHours: sampleDays * 24,
   });
 }
 
-export function buildDailySummary({ mode, rooms, assignments, shiftAssignments, loginTimes, priority, growthCategory = "vitrified", axisScope = "shared" }) {
-  if (mode === "afk") return simulateAfk({ rooms, assignments, priority, growthCategory, axisScope });
-  return evaluateShiftAssignments({ rooms, shiftAssignments, loginTimes, priority, growthCategory });
+export function buildDailySummary({ mode, rooms, assignments, shiftAssignments, loginTimes, manufacturingRecipes = DEFAULT_MANUFACTURING_RECIPES, growthCategory = "vitrified", axisScope = "shared" }) {
+  if (mode === "afk") return simulateAfk({ rooms, assignments, manufacturingRecipes, growthCategory, axisScope });
+  return evaluateShiftAssignments({ rooms, shiftAssignments, loginTimes, manufacturingRecipes, growthCategory });
 }

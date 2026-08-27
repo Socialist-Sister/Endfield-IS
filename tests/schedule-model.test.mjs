@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AXIS_SCOPES, CLUE_BASE_HOURS, GROWTH_BOX_COUNT, GROWTH_PRODUCT_HOURS, MFG_PRODUCT_HOURS, buildDailySummary, evaluateStartupOffsets, optimizeStartupAxis, productionFactor } from "../src/scheduleModel.js";
+import { AXIS_SCOPES, CLUE_BASE_HOURS, DEFAULT_MANUFACTURING_RECIPES, GROWTH_BOX_COUNT, GROWTH_PRODUCT_HOURS, MANUFACTURING_RECIPES, buildDailySummary, evaluateStartupOffsets, optimizeStartupAxis, productionFactor } from "../src/scheduleModel.js";
 import { OPERATORS, sortSkillsForDisplay } from "../src/operatorData.js";
 import { optimizeAfkAssignments, optimizeShiftAssignments, prepareCandidate } from "../src/assignmentOptimizer.js";
 
 const skill = (category, value) => ({ category, activeTier: { value } });
 const operator = (id, skills) => ({ id, activeSkills: skills });
+const DEFAULT_RECIPES = { ...DEFAULT_MANUFACTURING_RECIPES };
 
 test("three 10% operators produce the documented 286% factor", () => {
   const team = [1, 2, 3].map((id) => operator(String(id), [skill("weapon-exp", 10)]));
@@ -36,7 +37,7 @@ test("AFK startup solver returns a normalized half-hour axis", () => {
   const result = optimizeStartupAxis({
     rooms,
     assignments: { control: controlTeam },
-    priority: "balanced",
+    manufacturingRecipes: DEFAULT_RECIPES,
     axisScope: "shared",
   });
   assert.equal(AXIS_SCOPES.shared.label, "统一启动轴");
@@ -50,11 +51,11 @@ test("automatic shared axis is not worse than either former reference pattern", 
   const manufacturingTeam = [1, 2, 3].map((id) => operator(`w${id}`, [skill("weapon-exp", 30)]));
   const controlTeam = [1, 2, 3].map((id) => operator(`c${id}`, [skill("mood-regen", 16)]));
   const assignments = { "manufacture-a": manufacturingTeam, control: controlTeam };
-  const optimized = optimizeStartupAxis({ rooms, assignments, priority: "weapon-exp", axisScope: "shared" });
+  const optimized = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes: DEFAULT_RECIPES, axisScope: "shared" });
   const evaluate = (axis) => evaluateStartupOffsets({
     rooms,
     assignments,
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
     offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, axis])),
     warmupDays: optimized.warmupDays,
     sampleDays: optimized.sampleDays,
@@ -69,11 +70,11 @@ test("long-window verification catches the tight-stagger mood-cycle pattern", ()
   const manufacturingTeam = [1, 2, 3].map((id) => operator(`mr${id}`, [skill("weapon-exp", 30), skill("mood-drop", 18)]));
   const controlTeam = [1, 2, 3].map((id) => operator(`cr${id}`, [skill("mood-regen", 16)]));
   const assignments = { "manufacture-a": manufacturingTeam, control: controlTeam };
-  const optimized = optimizeStartupAxis({ rooms, assignments, priority: "weapon-exp", axisScope: "shared" });
+  const optimized = optimizeStartupAxis({ rooms, assignments, manufacturingRecipes: DEFAULT_RECIPES, axisScope: "shared" });
   const evaluate = (axis) => evaluateStartupOffsets({
     rooms,
     assignments,
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
     offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, axis])),
     warmupDays: optimized.warmupDays,
     sampleDays: optimized.sampleDays,
@@ -97,7 +98,7 @@ test("three rested groups retain the full multiplicative factor during eight-hou
       control: emptyShifts,
     },
     loginTimes: ["00:00", "08:00", "16:00"],
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
   });
   assert.ok(Math.abs(result.rooms["manufacture-a"].averageFactor - 2.86) < 1e-9);
   assert.equal(result.rooms["manufacture-a"].coverageRate, 1);
@@ -112,7 +113,7 @@ test("fixed shifts inherit mood instead of resetting a reused team to full", () 
     assignments: {},
     shiftAssignments: { "manufacture-a": [reusedTeam, reusedTeam], control: [[], []] },
     loginTimes: ["08:00", "20:00"],
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
   });
   assert.ok(result.rooms["manufacture-a"].coverageRate < 1);
   assert.ok(result.rooms["manufacture-a"].averageFactor < 2.86);
@@ -131,7 +132,7 @@ test("fixed-shift optimizer changes teams when login intervals change", () => {
     operators: OPERATORS,
     promotions,
     rooms,
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
     growthCategory: "vitrified",
     loginTimes,
   });
@@ -141,7 +142,7 @@ test("fixed-shift optimizer changes teams when login intervals change", () => {
 
 test("operators without unlocked room skills remain valid 40% assignment fillers", () => {
   const raw = { id: "filler", name: "填充", rarity: 4, skills: [] };
-  const candidate = prepareCandidate(raw, { id: "manufacture-a", type: "制造舱" }, 0, "weapon-exp", "vitrified");
+  const candidate = prepareCandidate(raw, { id: "manufacture-a", type: "制造舱" }, 0, DEFAULT_RECIPES, "vitrified");
   assert.deepEqual(candidate.activeSkills, []);
   assert.equal(productionFactor([candidate], "weapon-exp"), 1.4);
 });
@@ -159,7 +160,7 @@ test("AFK joint allocation is unique across rooms and never mixes mood groups", 
     operators: OPERATORS,
     promotions,
     rooms,
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
     growthCategory: "vitrified",
   });
   const ids = rooms.flatMap((room) => assignments[room.id].map((item) => item.id));
@@ -172,7 +173,7 @@ test("AFK joint allocation is unique across rooms and never mixes mood groups", 
     operators: OPERATORS,
     promotions: Object.fromEntries(OPERATORS.map((item) => [item.id, 0])),
     rooms,
-    priority: "weapon-exp",
+    manufacturingRecipes: DEFAULT_RECIPES,
     growthCategory: "vitrified",
   });
   assert.equal(rooms.flatMap((room) => e0Assignments[room.id]).length, 15);
@@ -187,7 +188,7 @@ test("growth output uses only the selected recipe and nine max-level boxes", () 
     assignments: {},
     shiftAssignments: { growth: growthTeams, control: [[], [], []] },
     loginTimes: ["00:00", "08:00", "16:00"],
-    priority: "balanced",
+    manufacturingRecipes: DEFAULT_RECIPES,
     growthCategory: "vitrified",
   });
   const expected = ((24 * 2.2) / GROWTH_PRODUCT_HOURS) * GROWTH_BOX_COUNT;
@@ -203,12 +204,12 @@ test("clue estimate has no unverified fixed daily clue", () => {
     assignments: {},
     shiftAssignments: { reception: receptionists, control: [[], [], []] },
     loginTimes: ["00:00", "08:00", "16:00"],
-    priority: "balanced",
+    manufacturingRecipes: DEFAULT_RECIPES,
   });
   assert.ok(Math.abs(result.clues - ((24 * 1.4) / CLUE_BASE_HOURS)) < 1e-9);
 });
 
-test("manufacturing priority routes both cabins into only the selected output", () => {
+test("manufacturing cabins route independently and use recipe-specific durations", () => {
   const rooms = [{ id: "manufacture-a", type: "制造舱" }, { id: "manufacture-b", type: "制造舱" }, { id: "reception", type: "会客室" }, { id: "control", type: "总控中枢" }];
   const dualTeam = [1, 2, 3].map((id) => operator(`d${id}`, [skill("weapon-exp", 20), skill("operator-exp", 20)]));
   const baseInput = {
@@ -223,11 +224,46 @@ test("manufacturing priority routes both cabins into only the selected output", 
     },
     loginTimes: ["00:00"],
   };
-  const weapon = buildDailySummary({ ...baseInput, priority: "weapon-exp" });
-  const operatorExp = buildDailySummary({ ...baseInput, priority: "operator-exp" });
-  const totalWeaponHours = weapon.rooms["manufacture-a"].effectiveHoursPerDay + weapon.rooms["manufacture-b"].effectiveHoursPerDay;
-  assert.equal(weapon.operator, 0);
-  assert.ok(Math.abs(weapon.weapon - (totalWeaponHours / MFG_PRODUCT_HOURS)) < 1e-9);
-  assert.equal(operatorExp.weapon, 0);
-  assert.ok(operatorExp.operator > 0);
+  const result = buildDailySummary({
+    ...baseInput,
+    manufacturingRecipes: {
+      "manufacture-a": "advanced-cognitive-carrier",
+      "manufacture-b": "weapon-inspection-kit",
+    },
+  });
+  assert.equal(result.operator, 0);
+  assert.ok(Math.abs(result.cognitive - (
+    result.rooms["manufacture-a"].effectiveHoursPerDay / MANUFACTURING_RECIPES["advanced-cognitive-carrier"].hours
+  )) < 1e-9);
+  assert.ok(Math.abs(result.weapon - (
+    result.rooms["manufacture-b"].effectiveHoursPerDay / MANUFACTURING_RECIPES["weapon-inspection-kit"].hours
+  )) < 1e-9);
+});
+
+test("two cabins selecting the same manufacturing recipe aggregate their output", () => {
+  const rooms = [{ id: "manufacture-a", type: "制造舱" }, { id: "manufacture-b", type: "制造舱" }, { id: "control", type: "总控中枢" }];
+  const teamA = [1, 2, 3].map((id) => operator(`a${id}`, [skill("operator-exp", 10)]));
+  const teamB = [1, 2, 3].map((id) => operator(`b${id}`, [skill("operator-exp", 10)]));
+  const result = buildDailySummary({
+    mode: "shift",
+    rooms,
+    assignments: {},
+    shiftAssignments: {
+      "manufacture-a": [teamA],
+      "manufacture-b": [teamB],
+      control: [[]],
+    },
+    loginTimes: ["00:00"],
+    manufacturingRecipes: {
+      "manufacture-a": "advanced-battle-record",
+      "manufacture-b": "advanced-battle-record",
+    },
+  });
+  const totalEffectiveHours = result.rooms["manufacture-a"].effectiveHoursPerDay
+    + result.rooms["manufacture-b"].effectiveHoursPerDay;
+  assert.equal(result.cognitive, 0);
+  assert.equal(result.weapon, 0);
+  assert.ok(Math.abs(result.operator - (
+    totalEffectiveHours / MANUFACTURING_RECIPES["advanced-battle-record"].hours
+  )) < 1e-9);
 });

@@ -6,26 +6,21 @@ import {
   evaluateShiftAssignments,
   evaluateStartupOffsets,
   getShiftDurations,
+  manufacturingSkillCategory,
 } from "./scheduleModel.js";
 
 const PRODUCTION_ROOMS = ["manufacture-a", "manufacture-b", "growth", "reception"];
 const IMPOSSIBLE_WEIGHT = -1e6;
 
-function manufacturingCategory(roomId, priority) {
-  if (priority === "weapon-exp") return "weapon-exp";
-  if (priority === "operator-exp") return "operator-exp";
-  return roomId === "manufacture-a" ? "weapon-exp" : "operator-exp";
-}
-
-function roomCategory(room, priority, growthCategory) {
-  if (room.type === "制造舱") return manufacturingCategory(room.id, priority);
+function roomCategory(room, manufacturingRecipes, growthCategory) {
+  if (room.type === "制造舱") return manufacturingSkillCategory(room.id, manufacturingRecipes);
   if (room.id === "growth") return growthCategory;
   if (room.id === "reception") return "clue-rate";
   return null;
 }
 
-export function prepareCandidate(operator, room, promotion, priority, growthCategory) {
-  const category = roomCategory(room, priority, growthCategory);
+export function prepareCandidate(operator, room, promotion, manufacturingRecipes, growthCategory) {
+  const category = roomCategory(room, manufacturingRecipes, growthCategory);
   const activeSkills = operator.skills
     .filter((skill) => skill.facility === room.type)
     .map((skill) => ({ ...skill, activeTier: getActiveSkill(skill, promotion) }))
@@ -47,8 +42,8 @@ function hasMoodReduction(candidate) {
   return skillValue(candidate, "mood-drop") > 0;
 }
 
-function candidateWeight(candidate, room, priority, growthCategory, moodWeight, duration = 24) {
-  const category = roomCategory(room, priority, growthCategory);
+function candidateWeight(candidate, room, manufacturingRecipes, growthCategory, moodWeight, duration = 24) {
+  const category = roomCategory(room, manufacturingRecipes, growthCategory);
   if (room.id === "control") {
     return (skillValue(candidate, "mood-regen") * 2.6) + (candidate.rarity * 1e-4);
   }
@@ -118,13 +113,13 @@ function maximizeAssignment(weights) {
   return assignment;
 }
 
-function buildMatchingAssignment({ operators, promotions, rooms, priority, growthCategory, policies = {}, moodWeight, duration = 24, penalties = new Map() }) {
+function buildMatchingAssignment({ operators, promotions, rooms, manufacturingRecipes, growthCategory, policies = {}, moodWeight, duration = 24, penalties = new Map() }) {
   const slots = rooms.flatMap((room) => Array.from({ length: 3 }, () => room));
   const dummyCount = slots.length;
   const columns = [...operators, ...Array.from({ length: dummyCount }, (_, index) => ({ id: `__dummy-${index}`, dummy: true }))];
   const prepared = Object.fromEntries(rooms.map((room) => [room.id, Object.fromEntries(operators.map((operator) => [
     operator.id,
-    prepareCandidate(operator, room, promotions[operator.id] ?? 4, priority, growthCategory),
+    prepareCandidate(operator, room, promotions[operator.id] ?? 4, manufacturingRecipes, growthCategory),
   ]))]));
   const weights = slots.map((room) => columns.map((operator) => {
     if (operator.dummy) return 0;
@@ -132,7 +127,7 @@ function buildMatchingAssignment({ operators, promotions, rooms, priority, growt
     const policy = policies[room.id];
     if (policy === "mood" && !hasMoodReduction(candidate)) return IMPOSSIBLE_WEIGHT;
     if (policy === "plain" && hasMoodReduction(candidate)) return IMPOSSIBLE_WEIGHT;
-    return candidateWeight(candidate, room, priority, growthCategory, moodWeight, duration)
+    return candidateWeight(candidate, room, manufacturingRecipes, growthCategory, moodWeight, duration)
       - (penalties.get(operator.id) ?? 0);
   }));
   const chosenColumns = maximizeAssignment(weights);
@@ -155,7 +150,7 @@ function assignmentSignature(assignments, rooms) {
   return rooms.map((room) => `${room.id}:${(assignments[room.id] ?? []).map((operator) => operator.id).sort().join(",")}`).join("|");
 }
 
-export function optimizeAfkAssignments({ operators, promotions, rooms, priority, growthCategory }) {
+export function optimizeAfkAssignments({ operators, promotions, rooms, manufacturingRecipes, growthCategory }) {
   const seen = new Set();
   let best = null;
   const policyCount = 2 ** PRODUCTION_ROOMS.length;
@@ -164,7 +159,7 @@ export function optimizeAfkAssignments({ operators, promotions, rooms, priority,
     const policies = Object.fromEntries(PRODUCTION_ROOMS.map((roomId, index) => [roomId, mask & (1 << index) ? "mood" : "plain"]));
     for (const moodWeight of [0.45, 0.8, 1.2, 1.7]) {
       const assignments = buildMatchingAssignment({
-        operators, promotions, rooms, priority, growthCategory, policies, moodWeight,
+        operators, promotions, rooms, manufacturingRecipes, growthCategory, policies, moodWeight,
       });
       const signature = assignmentSignature(assignments, rooms);
       if (seen.has(signature)) continue;
@@ -174,7 +169,7 @@ export function optimizeAfkAssignments({ operators, promotions, rooms, priority,
         const summary = evaluateStartupOffsets({
           rooms,
           assignments,
-          priority,
+          manufacturingRecipes,
           growthCategory,
           offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, axis])),
           warmupDays: 30,
@@ -188,7 +183,7 @@ export function optimizeAfkAssignments({ operators, promotions, rooms, priority,
   return best?.assignments ?? Object.fromEntries(rooms.map((room) => [room.id, []]));
 }
 
-function buildShiftSchedule({ operators, promotions, rooms, priority, growthCategory, loginTimes, startShift, reusePenalty, moodWeight }) {
+function buildShiftSchedule({ operators, promotions, rooms, manufacturingRecipes, growthCategory, loginTimes, startShift, reusePenalty, moodWeight }) {
   const durations = getShiftDurations(loginTimes);
   const shiftCount = loginTimes.length;
   const byShift = Array.from({ length: shiftCount }, () => null);
@@ -207,7 +202,7 @@ function buildShiftSchedule({ operators, promotions, rooms, priority, growthCate
       operators,
       promotions,
       rooms,
-      priority,
+      manufacturingRecipes,
       growthCategory,
       moodWeight,
       duration: durations[shiftIndex],
@@ -226,7 +221,7 @@ function shiftSignature(shiftAssignments, rooms) {
   return rooms.map((room) => `${room.id}:${shiftAssignments[room.id].map((team) => team.map((operator) => operator.id).sort().join(",")).join("/")}`).join("|");
 }
 
-export function optimizeShiftAssignments({ operators, promotions, rooms, priority, growthCategory, loginTimes }) {
+export function optimizeShiftAssignments({ operators, promotions, rooms, manufacturingRecipes, growthCategory, loginTimes }) {
   const seen = new Set();
   let best = null;
   for (let startShift = 0; startShift < loginTimes.length; startShift += 1) {
@@ -236,7 +231,7 @@ export function optimizeShiftAssignments({ operators, promotions, rooms, priorit
           operators,
           promotions,
           rooms,
-          priority,
+          manufacturingRecipes,
           growthCategory,
           loginTimes,
           startShift,
@@ -250,7 +245,7 @@ export function optimizeShiftAssignments({ operators, promotions, rooms, priorit
           rooms,
           shiftAssignments,
           loginTimes,
-          priority,
+          manufacturingRecipes,
           growthCategory,
           warmupDays: 45,
           sampleDays: 30,

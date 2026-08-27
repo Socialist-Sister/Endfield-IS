@@ -6,14 +6,20 @@ import {
   Triangle, UsersThree,
 } from "@phosphor-icons/react";
 import { FACILITIES, OPERATORS, getOperatorSkillSummary } from "./operatorData.js";
-import { AXIS_SCOPES } from "./scheduleModel.js";
+import {
+  AXIS_SCOPES,
+  DEFAULT_MANUFACTURING_RECIPES,
+  MANUFACTURING_RECIPES,
+  manufacturingRecipeId,
+  manufacturingSkillCategory,
+} from "./scheduleModel.js";
 
 const INITIAL_SELECTED = [];
 const OPERATOR_SYMBOLS = [Diamond, Hexagon, Triangle, Square, Star, Crosshair, DotsNine, Cube, Target];
 const ROOM_META = [
-  { id: "manufacture-a", name: "制造舱 01", type: "制造舱", recipe: "武器经验材料" },
-  { id: "manufacture-b", name: "制造舱 02", type: "制造舱", recipe: "干员经验材料" },
-  { id: "growth", name: "培养舱", type: "培养舱", recipe: "质料培养" },
+  { id: "manufacture-a", name: "制造舱Ⅰ", type: "制造舱", recipe: "生产制造" },
+  { id: "manufacture-b", name: "制造舱Ⅱ", type: "制造舱", recipe: "生产制造" },
+  { id: "growth", name: "培养舱Ⅰ", type: "培养舱", recipe: "质料培养" },
   { id: "reception", name: "会客室", type: "会客室", recipe: "线索收集" },
   { id: "control", name: "总控中枢", type: "总控中枢", recipe: "全局恢复" },
 ];
@@ -24,19 +30,13 @@ const GROWTH_OPTIONS = {
 };
 const emptyAssignments = () => Object.fromEntries(ROOM_META.map((room) => [room.id, []]));
 const emptyShiftAssignments = (shiftCount) => Object.fromEntries(ROOM_META.map((room) => [room.id, Array.from({ length: shiftCount }, () => [])]));
-function preferredManufacturingCategory(roomId, priority) {
-  if (priority === "weapon-exp") return "weapon-exp";
-  if (priority === "operator-exp") return "operator-exp";
-  return roomId === "manufacture-a" ? "weapon-exp" : "operator-exp";
-}
-
 function hasMoodReduction(operator) {
   return operator.activeSkills.some((skill) => skill.category === "mood-drop");
 }
 
-function getRoomRecipe(room, priority, growthCategory, summary) {
+function getRoomRecipe(room, manufacturingRecipes, growthCategory, summary) {
   if (room.type === "制造舱") {
-    return preferredManufacturingCategory(room.id, priority) === "weapon-exp" ? "高级武器套组" : "高级作战记录";
+    return MANUFACTURING_RECIPES[manufacturingRecipeId(room.id, manufacturingRecipes)].label;
   }
   if (room.id === "reception") return `预计 ${summary.clues.toFixed(2)} 线索/日`;
   if (room.id === "control") return `休息恢复 ${summary.moodRecovery.toFixed(1)}%/小时`;
@@ -49,8 +49,8 @@ function getMoodGroupLabel(team, room) {
   return moodOperators ? `${moodOperators}/${team.length} 减耗组` : "无减耗组";
 }
 
-function getAssignmentSkills(operator, room, priority, growthCategory, team = []) {
-  const preferredCategory = room.type === "制造舱" ? preferredManufacturingCategory(room.id, priority) : null;
+function getAssignmentSkills(operator, room, manufacturingRecipes, growthCategory, team = []) {
+  const preferredCategory = room.type === "制造舱" ? manufacturingSkillCategory(room.id, manufacturingRecipes) : null;
   const selectedCategory = room.id === "growth" ? growthCategory : preferredCategory;
   return getOperatorSkillSummary(operator, operator.promotion).map((skill, index) => {
     const sameFacility = skill.facility === room.type;
@@ -73,10 +73,10 @@ function getAssignmentSkills(operator, room, priority, growthCategory, team = []
   }).sort((left, right) => Number(right.applies) - Number(left.applies) || left.displayIndex - right.displayIndex);
 }
 
-function AssignmentSkills({ operator, room, priority, growthCategory, team }) {
+function AssignmentSkills({ operator, room, manufacturingRecipes, growthCategory, team }) {
   return (
     <span className="assignment-skills">
-      {getAssignmentSkills(operator, room, priority, growthCategory, team).map((skill) => (
+      {getAssignmentSkills(operator, room, manufacturingRecipes, growthCategory, team).map((skill) => (
         <small
           className={`assignment-skill ${skill.applies ? "" : "assignment-skill--inactive"}`}
           data-active={skill.applies}
@@ -135,7 +135,7 @@ export function App() {
   const [operatorSearch, setOperatorSearch] = useState("");
   const [facilityFilter, setFacilityFilter] = useState("all");
   const [ownedOnly, setOwnedOnly] = useState(false);
-  const [priority, setPriority] = useState("balanced");
+  const [manufacturingRecipes, setManufacturingRecipes] = useState(() => ({ ...DEFAULT_MANUFACTURING_RECIPES }));
   const [growthCategory, setGrowthCategory] = useState("vitrified");
   const [axisScope, setAxisScope] = useState("shared");
   const [loginTimes, setLoginTimes] = useState(["08:00", "22:30"]);
@@ -192,6 +192,10 @@ export function App() {
     setPromotions((current) => ({ ...current, [id]: Number(value) }));
     invalidate();
   }
+  function setManufacturingRecipe(roomId, recipeId) {
+    setManufacturingRecipes((current) => ({ ...current, [roomId]: recipeId }));
+    invalidate();
+  }
   function addTime() {
     if (!newTime || loginTimes.includes(newTime)) return;
     setLoginTimes((current) => [...current, newTime].sort());
@@ -239,7 +243,7 @@ export function App() {
       rooms: ROOM_META,
       selected,
       promotions,
-      priority,
+      manufacturingRecipes,
       growthCategory,
       loginTimes,
       axisScope,
@@ -282,11 +286,15 @@ export function App() {
                   </div>
                 </fieldset>
                 <fieldset className="field-group">
-                  <legend>生产优先级</legend>
-                  <div className="select-wrap"><select aria-label="生产优先级" value={priority} onChange={(event) => { setPriority(event.target.value); invalidate(); }}><option value="balanced">综合产出均衡</option><option value="weapon-exp">武器经验优先</option><option value="operator-exp">干员经验优先</option></select><CaretDown size={17} weight="bold" /></div>
+                  <legend>制造舱Ⅰ</legend>
+                  <div className="select-wrap"><select aria-label="制造舱Ⅰ生产配方" value={manufacturingRecipes["manufacture-a"]} onChange={(event) => setManufacturingRecipe("manufacture-a", event.target.value)}>{Object.entries(MANUFACTURING_RECIPES).map(([value, option]) => <option value={value} key={value}>{option.label}</option>)}</select><CaretDown size={17} weight="bold" /></div>
                 </fieldset>
                 <fieldset className="field-group">
-                  <legend>培养对象</legend>
+                  <legend>制造舱Ⅱ</legend>
+                  <div className="select-wrap"><select aria-label="制造舱Ⅱ生产配方" value={manufacturingRecipes["manufacture-b"]} onChange={(event) => setManufacturingRecipe("manufacture-b", event.target.value)}>{Object.entries(MANUFACTURING_RECIPES).map(([value, option]) => <option value={value} key={value}>{option.label}</option>)}</select><CaretDown size={17} weight="bold" /></div>
+                </fieldset>
+                <fieldset className="field-group">
+                  <legend>培养舱Ⅰ</legend>
                   <div className="select-wrap"><select aria-label="培养对象" value={growthCategory} onChange={(event) => { setGrowthCategory(event.target.value); invalidate(); }}>{Object.entries(GROWTH_OPTIONS).map(([value, option]) => <option value={value} key={value}>{option.label}</option>)}</select><CaretDown size={17} weight="bold" /></div>
                 </fieldset>
                 {mode === "afk" && (
@@ -357,8 +365,9 @@ export function App() {
               <div className="result-actions"><div className="result-status"><span className="status-dot" />结果可用</div><button className="edit-config-button" onClick={() => goToSection("config", configRef)}><ArrowLeft size={17} weight="bold" />修改配置</button></div>
             </div>
             <div className="metric-row">
-              <Metric label="高级武器套组" value={`${dailySummary.weapon.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
+              <Metric label="高级认知载体" value={`${dailySummary.cognitive.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
               <Metric label="高级作战记录" value={`${dailySummary.operator.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
+              <Metric label="武器检查套组" value={`${dailySummary.weapon.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
               <Metric label={`${GROWTH_OPTIONS[growthCategory].label}培养`} value={`${dailySummary.growth.toFixed(2)} /日`} note="3 级培养舱 · 9 个培养箱" />
               <Metric label="预计线索搜集" value={`${dailySummary.clues.toFixed(2)} /日`} note="按 72 小时基础周期估算" />
             </div>
@@ -381,12 +390,12 @@ export function App() {
                   const moodGroup = mode === "afk" ? getMoodGroupLabel(roomOperators, room) : null;
                   return (
                     <article className="facility-lane" key={room.id}>
-                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, priority, growthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}{moodGroup && <em>{moodGroup}</em>}</span></div>
+                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, manufacturingRecipes, growthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}{moodGroup && <em>{moodGroup}</em>}</span></div>
                       {mode === "afk" ? (
-                        <div className="lane-assignments">{scheduledOperators.length ? scheduledOperators.map(({ operator, startOffset }, index) => <div className="assignment-slot" key={operator.id}><div className="assignment-time" aria-label={formatStartOffset(startOffset)} title={formatStartOffset(startOffset)}>{formatStartOffsetLabel(startOffset)}</div><div className="assignment-cell" style={{ "--delay": `${index * 55 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} priority={priority} growthCategory={growthCategory} team={roomOperators} /></span></div></div>) : <div className="empty-lane">当前干员数量不足</div>}</div>
+                        <div className="lane-assignments">{scheduledOperators.length ? scheduledOperators.map(({ operator, startOffset }, index) => <div className="assignment-slot" key={operator.id}><div className="assignment-time" aria-label={formatStartOffset(startOffset)} title={formatStartOffset(startOffset)}>{formatStartOffsetLabel(startOffset)}</div><div className="assignment-cell" style={{ "--delay": `${index * 55 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={manufacturingRecipes} growthCategory={growthCategory} team={roomOperators} /></span></div></div>) : <div className="empty-lane">当前干员数量不足</div>}</div>
                       ) : (
                         <div className="lane-assignments lane-assignments--shifts" style={{ "--shift-count": loginTimes.length }}>
-                          {(shiftAssignments[room.id] ?? []).map((shiftOperators, shiftIndex) => <section className="shift-block" key={`${room.id}-${loginTimes[shiftIndex]}`}><header className="shift-block__header"><span>班次 {String(shiftIndex + 1).padStart(2, "0")}</span><strong>{loginTimes[shiftIndex]}</strong></header><div className="shift-operators">{shiftOperators.length ? shiftOperators.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={`${operator.id}-${shiftIndex}`} style={{ "--delay": `${index * 45 + shiftIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} priority={priority} growthCategory={growthCategory} team={shiftOperators} /></span></div>) : <div className="empty-lane">本班保留空位</div>}</div></section>)}
+                          {(shiftAssignments[room.id] ?? []).map((shiftOperators, shiftIndex) => <section className="shift-block" key={`${room.id}-${loginTimes[shiftIndex]}`}><header className="shift-block__header"><span>班次 {String(shiftIndex + 1).padStart(2, "0")}</span><strong>{loginTimes[shiftIndex]}</strong></header><div className="shift-operators">{shiftOperators.length ? shiftOperators.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={`${operator.id}-${shiftIndex}`} style={{ "--delay": `${index * 45 + shiftIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={manufacturingRecipes} growthCategory={growthCategory} team={shiftOperators} /></span></div>) : <div className="empty-lane">本班保留空位</div>}</div></section>)}
                         </div>
                       )}
                     </article>

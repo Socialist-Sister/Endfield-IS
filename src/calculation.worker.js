@@ -12,7 +12,7 @@ function emptyShiftAssignments(rooms, shiftCount) {
 
 self.onmessage = ({ data }) => {
   const {
-    mode, rooms, selected, promotions, priority, growthCategory, loginTimes, axisScope,
+    mode, rooms, selected, promotions, manufacturingRecipes, growthCategory, loginTimes, axisScope,
   } = data;
   const selectedOperators = OPERATORS.filter((operator) => selected.includes(operator.id));
   self.postMessage({ type: "progress", value: 8 });
@@ -22,7 +22,7 @@ self.onmessage = ({ data }) => {
       operators: selectedOperators,
       promotions,
       rooms,
-      priority,
+      manufacturingRecipes,
       growthCategory,
     })
     : emptyAssignments(rooms);
@@ -33,7 +33,7 @@ self.onmessage = ({ data }) => {
       operators: selectedOperators,
       promotions,
       rooms,
-      priority,
+      manufacturingRecipes,
       growthCategory,
       loginTimes,
     })
@@ -46,7 +46,7 @@ self.onmessage = ({ data }) => {
     assignments,
     shiftAssignments,
     loginTimes,
-    priority,
+    manufacturingRecipes,
     growthCategory,
     axisScope,
   });

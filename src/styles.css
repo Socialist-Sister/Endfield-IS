@@ -179,11 +179,12 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .status-dot { width: 8px; height: 8px; background: #b5aa00; box-shadow: 0 0 0 3px #f8f486; }
 .edit-config-button { height: 40px; padding: 0 14px; border: 1px solid #000; border-radius: 999px; display: flex; align-items: center; gap: 7px; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, background-color .2s, transform .3s; }
 .edit-config-button:hover { background: var(--ink); color: white; transform: translateX(-3px); }
-.metric-row { margin-top: 26px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #000; background: #000; gap: 1px; }
+.metric-row { margin-top: 26px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid #000; background: #000; gap: 1px; }
 .metric { position: relative; min-height: 138px; padding: 18px 17px 16px; display: flex; flex-direction: column; justify-content: space-between; background: #eceeeb; animation: metric-reveal .45s ease-out both; }
 .metric:nth-child(2) { animation-delay: 60ms; }
 .metric:nth-child(3) { animation-delay: 120ms; }
 .metric:nth-child(4) { animation-delay: 180ms; }
+.metric:nth-child(5) { animation-delay: 240ms; }
 .metric::before { content: ""; position: absolute; inset: 0 0 auto; height: 7px; background: var(--yellow); }
 .metric span { color: #555a57; font-size: 12px; font-weight: 700; }
 .metric strong { margin-top: 12px; font-family: var(--font-display); font-size: clamp(25px, 2.5vw, 40px); line-height: 1; letter-spacing: -.05em; }

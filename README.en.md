@@ -21,7 +21,7 @@ An infrastructure shift calculator for the Dijiang in *Arknights: Endfield*. Bas
 - Includes 29 assignable operators and excludes both Administrator variants, which currently lack reliable infrastructure assignment data.
 - Supports per-operator E0–E4 promotion selection. Operators default to E4, and promotion controls the unlocks and upgrades of up to two infrastructure skills.
 - Calculates skill matching, morale cycles, and assignments for manufacturing cabins, growth chambers, the reception room, and the Control Nexus.
-- Reports weapon EXP, operator EXP, the selected growth-material category, and clue results separately instead of mixing incompatible resource units.
+- Lets each manufacturing cabin independently select Advanced Cognitive Carrier, Advanced Battle Record, or Weapon Inspection Kit, then reports all three manufacturing outputs, the selected growth-material category, and clue results separately.
 - Shows both skill slots available at the selected promotion. Skills active for the assigned facility appear first; locked or inactive skills remain visible in a muted state.
 - Runs long calculations in a Web Worker and reports progress through a bottom-edge progress bar.
 - Adapts to desktop and narrow viewports with a black, fog-white, and signal-yellow industrial design inspired by Endfield.
@@ -49,7 +49,7 @@ The user enters daily login times, and every time point performs a full-team rep
 - Base recovery in the Control Nexus: `12% per hour`, multiplied by active recovery-skill modifiers.
 - Manufacturing, growth, and reception efficiency per time slice: `(1 + 40% × active operators) × (1 + total matching skills)`.
 - Operators without a matching facility skill remain valid candidates and still provide the universal 40% assignment bonus.
-- Manufacturing assumes max-level cabins and published product durations. Both cabins produce the selected priority product, while the other EXP output is reported as zero.
+- Manufacturing assumes max-level cabins and published product durations: 24:26:40 for Advanced Cognitive Carrier, and 09:46:40 for both Advanced Battle Record and Weapon Inspection Kit. Each cabin keeps its selected recipe fixed; cabins choosing the same recipe have their daily output aggregated.
 - Growth calculations keep one category—mineral, vitrified plant, or fungal—fixed throughout the simulation.
 - Specific-clue skills are qualitative L1/L2 tendencies. Identical effects do not stack, and the model does not invent a fixed daily clue count.
 - Outside the Control Nexus, AFK teams do not mix morale-consumption-reduction operators with ordinary operators, preventing duty-cycle drift.
