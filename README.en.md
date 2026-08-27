@@ -1,98 +1,157 @@
+<div align="center">
+
 # Endfield-IS
 
-[简体中文](./README.md) | English
+**Dijiang Infrastructure Shift Calculator for _Arknights: Endfield_**
 
-An infrastructure shift calculator for the Dijiang in *Arknights: Endfield*. Based on manually selected operators, promotion levels, and production goals, it simulates infrastructure skills, morale consumption, automatic duty cycles, and fixed-login rotations to provide long-run schedule and output estimates.
+Estimate long-run AFK or fixed-login schedules from operators, promotion levels, production recipes, and login times.
 
-> This is an unofficial calculator. It does not read, detect, or control the game client. Operator ownership, promotion levels, production targets, and login times are entered manually by the user.
+[简体中文](README.md) · [English](README.en.md)
+
+[![Live App](https://img.shields.io/badge/Live%20App-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
+[![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
+[![Operators](https://img.shields.io/badge/Operators-29-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
+
+<kbd>AFK Solver</kbd> <kbd>Fixed Rotation</kbd> <kbd>Morale Simulation</kbd> <kbd>Production Estimate</kbd>
+
+</div>
+
+---
+
+> Endfield-IS is an unofficial infrastructure calculator for the Dijiang. Operator ownership, promotion levels, production targets, and login times are entered manually; the project does not read, detect, or control the game client.
+
+## Contents
+
+1. [Live App](#live-app)
+2. [Interface Preview](#interface-preview)
+3. [Key Capabilities](#key-capabilities)
+4. [Scheduling Modes](#scheduling-modes)
+5. [Calculation Model](#calculation-model)
+6. [Local Development and Testing](#local-development-and-testing)
+7. [Deployment](#deployment)
+8. [Data and Assets](#data-and-assets)
+
+---
 
 ## Live App
 
-[https://endfield-is.vercel.app](https://endfield-is.vercel.app)
+| Site | Purpose | URL |
+|---|---|---|
+| EdgeOne Makers | Primary mainland-oriented deployment | [Open calculator](https://endfield-is-dp0gzaz4ler3.edgeone.dev/) |
+| Vercel | Overseas and fallback deployment | [Open calculator](https://endfield-is.vercel.app/) |
+
+### Basic Workflow
+
+1. Choose **Long-run AFK** or **Fixed-login Rotation**.
+2. Set a fixed recipe for each manufacturing cabin, a growth-material category, and the scheduling parameters.
+3. Select owned operators and adjust their E0–E4 promotion levels. Every operator defaults to E4, while the roster starts unselected.
+4. Run the solver and review per-facility assignments, startup timing, skill activation, and estimated daily output.
+
+---
 
 ## Interface Preview
 
-![Configuration view](./implementation-endfield-web-config.png)
+<div align="center">
+  <img src="implementation-endfield-web-config.png" alt="Configuration view" width="49%" />
+  <img src="implementation-endfield-web-result.png" alt="Result view" width="49%" />
+</div>
 
-![Result view](./implementation-endfield-web-result.png)
+The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
 
-## Key Features
+---
 
-- Includes 29 assignable operators and excludes both Administrator variants, which currently lack reliable infrastructure assignment data.
-- Supports per-operator E0–E4 promotion selection. Operators default to E4, and promotion controls the unlocks and upgrades of up to two infrastructure skills.
-- Calculates skill matching, morale cycles, and assignments for manufacturing cabins, growth chambers, the reception room, and the Control Nexus.
-- Lets each manufacturing cabin independently select Advanced Cognitive Carrier, Advanced Battle Record, or Weapon Inspection Kit, then reports all three manufacturing outputs, the selected growth-material category, and clue results separately.
-- Shows both skill slots available at the selected promotion. Skills active for the assigned facility appear first; locked or inactive skills remain visible in a muted state.
-- Runs long calculations in a Web Worker and reports progress through a bottom-edge progress bar.
-- Adapts to desktop and narrow viewports with a black, fog-white, and signal-yellow industrial design inspired by Endfield.
+## Key Capabilities
+
+- **29 assignable operators:** excludes both Administrator variants because reliable infrastructure data is unavailable; operators without matching skills remain valid universal staffing candidates.
+- **Promotion-aware skills:** per-operator E0–E4 selection controls the unlock and upgrade state of up to two infrastructure skills. Both slots remain visible in results, with locked or inactive skills muted.
+- **Per-cabin production targets:** Manufacturing Cabins I and II independently keep Advanced Cognitive Carrier, Advanced Battle Record, or Weapon Inspection Kit fixed; Growth Chamber I keeps mineral, vitrified-plant, or fungal material fixed.
+- **Unique cross-facility allocation:** solves the Control Nexus, Reception Room, Manufacturing Cabins I and II, and Growth Chamber I together so an operator is never double-booked at the same time.
+- **Continuous morale simulation:** models work drain, Control Nexus recovery, skill modifiers, automatic leave, and full-morale return. Fixed rotations never reset a reused operator to full morale.
+- **Output-first optimization:** optimizes verified stable-cycle daily output and may accept short downtime when fully staffed high-efficiency periods compensate for it.
+- **Non-blocking calculation:** long searches run in a Web Worker with progress shown by a bottom-edge bar.
+
+---
 
 ## Scheduling Modes
 
 ### Long-run AFK
 
-This mode simulates Dijiang's automatic duty cycle: an operator leaves when morale reaches zero and returns after recovering to full morale. The solver searches 30-minute startup offsets and compares actual stable-cycle daily output after a long warm-up period.
+Simulates Dijiang's automatic duty cycle: an operator leaves at zero morale and returns after recovering to full. The solver searches real startup offsets in 30-minute steps, then compares stable-cycle daily output after a long warm-up.
 
-The user only selects the search scope:
-
-- **Unified startup axis:** every facility shares one startup timeline, making the plan easier to execute.
-- **Per-facility startup axes:** facilities search independently and use separate axes only when verified daily output exceeds the unified baseline.
-
-Full coverage is not a hard constraint. A schedule may include short downtime when the efficiency of fully staffed, high-skill periods more than offsets the lost production.
+| Search Scope | Description |
+|---|---|
+| Unified startup axis | Every facility shares one startup timeline for simpler execution |
+| Per-facility startup axes | Facilities search independently and use separate axes only when verified output beats the unified baseline |
 
 ### Fixed-login Rotation
 
-The user enters daily login times, and every time point performs a full-team replacement. Morale is tracked continuously for every operator across shifts and days. Reused operators are never reset to full morale; reuse or deliberate downtime is allowed only when it improves verified long-run output.
+The user enters daily login times, and each node performs a full-team replacement. Morale is tracked continuously across shifts and days; operator reuse or deliberate downtime is accepted only when it improves verified long-run output.
+
+---
 
 ## Calculation Model
 
-- Base morale drain in a working facility: `7% per hour`.
-- Base recovery in the Control Nexus: `12% per hour`, multiplied by active recovery-skill modifiers.
-- Manufacturing, growth, and reception efficiency per time slice: `(1 + 40% × active operators) × (1 + total matching skills)`.
-- Operators without a matching facility skill remain valid candidates and still provide the universal 40% assignment bonus.
-- Manufacturing assumes max-level cabins and published product durations: 24:26:40 for Advanced Cognitive Carrier, and 09:46:40 for both Advanced Battle Record and Weapon Inspection Kit. Each cabin keeps its selected recipe fixed; cabins choosing the same recipe have their daily output aggregated.
-- Growth calculations keep one category—mineral, vitrified plant, or fungal—fixed throughout the simulation.
-- Specific-clue skills are qualitative L1/L2 tendencies. Identical effects do not stack, and the model does not invent a fixed daily clue count.
-- Outside the Control Nexus, AFK teams do not mix morale-consumption-reduction operators with ordinary operators, preventing duty-cycle drift.
+| Item | Current Rule |
+|---|---|
+| Working morale drain | `7% per hour` |
+| Control Nexus recovery | Base `12% per hour`, multiplied by active recovery-skill modifiers |
+| Manufacturing / growth / reception efficiency | `(1 + 40% × active operators) × (1 + total matching skills)` |
+| Universal staffing bonus | Operators without matching room skills still provide 40% each |
+| Manufacturing duration | Advanced Cognitive Carrier `24:26:40`; Advanced Battle Record and Weapon Inspection Kit `09:46:40` |
+| Growth target | One of mineral, vitrified-plant, or fungal material stays fixed for the whole simulation |
+| Specific-clue skills | Qualitative L1/L2 tendencies only; identical effects do not stack and no fixed daily clue count is invented |
 
-Results are estimates based on the current dataset and model, not real-time game state. Operator data and calculation rules should be updated when in-game values or mechanics change.
+Each manufacturing cabin keeps its selected recipe fixed. Daily output is aggregated when both cabins choose the same recipe. Outside the Control Nexus, AFK teams never mix morale-consumption-reduction operators with ordinary operators, preventing duty-cycle drift.
 
-## Technology
+> Results are estimates based on the current public dataset and model, not real-time game state. Operator data and calculation rules should be updated when in-game values or mechanics change.
 
-React 19, Vite 6, Phosphor Icons, Web Workers, the Node.js native test runner, and Vercel.
+---
 
-## Asset Notice
+## Local Development and Testing
 
-Operator portraits are bundled as local static assets so the interface does not depend on a third-party image service at runtime. Portrait mapping was cross-checked against the public [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) metadata. Character artwork remains the property of Hypergryph / GRYPHLINE; this project claims no ownership of those assets.
-
-## Local Development
-
-Requires Node.js 20 or newer.
+Node.js 20 or newer is required.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Create a production build:
+Production build and tests:
 
 ```bash
 npm run build
-```
-
-Browser assets are written to `dist/client`. The build also creates `dist/server/index.js` and `dist/.openai/hosting.json` for Sites-compatible handoff.
-
-## Testing
-
-```bash
 node --test tests/schedule-model.test.mjs
 npm run test:sites
 ```
 
-Tests cover stable-cycle startup optimization, continuous morale tracking, unique cross-facility assignments, fixed material categories, production priorities, and clue estimation.
+Browser assets are written to `dist/client`. The build also creates `dist/server/index.js` and `dist/.openai/hosting.json` for Sites-compatible handoff.
+
+Tests cover stable-cycle startup optimization, continuous morale tracking, unique cross-facility assignments, fixed material categories, per-cabin recipes and durations, same-recipe aggregation, and clue estimation.
+
+### Technology
+
+React 19 · Vite 6 · Phosphor Icons · Web Worker · Node.js native test runner
+
+---
 
 ## Deployment
 
-- Mainland-oriented primary site: [EdgeOne Makers](https://endfield-is-dp0gzaz4ler3.edgeone.dev/)
-- Overseas and fallback site: [Vercel](https://endfield-is.vercel.app/)
+Both sites track the repository's `main` branch and publish automatically.
 
-Both deployments track the repository's `main` branch and publish automatically. EdgeOne uses `npm install`, `npm run build`, and the `dist/client` output directory. Vercel settings are defined in [`vercel.json`](./vercel.json).
+| Platform | Install Command | Build Command | Output Directory |
+|---|---|---|---|
+| EdgeOne Makers | `npm install` | `npm run build` | `dist/client` |
+| Vercel | `npm install` | `npm run build` | `dist/client` |
+
+Vercel routing and build settings are defined in [`vercel.json`](vercel.json).
+
+---
+
+## Data and Assets
+
+Operator portraits are bundled as local static assets so the interface has no runtime dependency on a third-party image service. Portrait mapping was cross-checked against the public [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) metadata.
+
+_Arknights: Endfield_, its characters, artwork, and related assets belong to Hypergryph / GRYPHLINE. This unofficial project claims no ownership of game assets.
+
+Use [Issues](https://github.com/Socialist-Sister/Endfield-IS/issues) to report data corrections, algorithm problems, or interface suggestions.

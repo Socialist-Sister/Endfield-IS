@@ -57,6 +57,7 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 - Specific-clue skills do not increase total clue count and identical clue effects do not stack. Do not add an unverified fixed daily clue to the estimate.
 - Long calculations run off the main UI thread and show a slim signal-yellow progress bar fixed flush to the bottom edge; the bar reaches 100% and then dismisses when results are ready.
 - Use specific labels such as “模拟口径” and “产量口径” to explain assumptions at the point they affect the result; avoid generic boundary or disclaimer copy.
+- Keep `README.md` and `README.en.md` structurally mirrored. Use a centered bilingual project header, truthful status badges, compact `<kbd>` topic tags, a short contents list, paired interface previews, and concise tables for calculation and deployment details.
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
