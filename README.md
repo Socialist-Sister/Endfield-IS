@@ -54,8 +54,8 @@
 ## 界面预览
 
 <div align="center">
-  <img src="implementation-endfield-web-config.png" alt="配置页面" width="49%" />
-  <img src="implementation-endfield-web-result.png" alt="结果页面" width="49%" />
+  <img src="docs/images/interface-config.png" alt="配置页面" width="49%" />
+  <img src="docs/images/interface-result.png" alt="结果页面" width="49%" />
 </div>
 
 界面以终末地官网为主要视觉参考，使用黑、雾白与信号黄构成适合计算工具的信息层级，并适配桌面与窄屏窗口。

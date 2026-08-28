@@ -54,8 +54,8 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 ## Interface Preview
 
 <div align="center">
-  <img src="implementation-endfield-web-config.png" alt="Configuration view" width="49%" />
-  <img src="implementation-endfield-web-result.png" alt="Result view" width="49%" />
+  <img src="docs/images/interface-config.png" alt="Configuration view" width="49%" />
+  <img src="docs/images/interface-result.png" alt="Result view" width="49%" />
 </div>
 
 The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
