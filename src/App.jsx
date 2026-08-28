@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, ArrowsClockwise, Calculator, CaretDown, ChartLineUp, Check,
-  ClockCounterClockwise, Crosshair, Cube, Diamond, DotsNine, Factory, Hexagon,
-  MagnifyingGlass, Plus, ShieldCheck, SlidersHorizontal, Square, Star, Target, Trash,
-  Triangle, UsersThree,
+  ArrowLeft, ArrowRight, ArrowSquareOut, ArrowsClockwise, Calculator, CaretDown,
+  ChartLineUp, Check, ClockCounterClockwise, Crosshair, Cube, Diamond, DotsNine,
+  Factory, GithubLogo, Hexagon, Info, MagnifyingGlass, Plus, SlidersHorizontal,
+  Square, Star, Target, Trash, Triangle,
 } from "@phosphor-icons/react";
 import { FACILITIES, OPERATORS, getOperatorSkillSummary } from "./operatorData.js";
 import {
@@ -15,6 +15,7 @@ import {
 } from "./scheduleModel.js";
 
 const INITIAL_SELECTED = [];
+const REPOSITORY_URL = "https://github.com/Socialist-Sister/Endfield-IS";
 const OPERATOR_SYMBOLS = [Diamond, Hexagon, Triangle, Square, Star, Crosshair, DotsNine, Cube, Target];
 const ROOM_META = [
   { id: "manufacture-a", name: "制造舱Ⅰ", type: "制造舱", recipe: "生产制造" },
@@ -99,8 +100,17 @@ function formatStartOffsetLabel(hours) {
   return `+${hourPart ? `${hourPart}h` : ""}${minutePart ? `${minutePart}m` : ""}`;
 }
 
-function Metric({ label, value, note }) {
-  return <div className="metric"><span>{label}</span><strong>{value}</strong><small>{note}</small></div>;
+function Metric({ label, value, period = "日均", note }) {
+  return <div className="metric"><span>{label}</span><div className="metric-value" aria-label={`${value}，${period}`}><strong>{value}</strong><em>{period}</em></div><small>{note}</small></div>;
+}
+
+function PageHeading({ index, title, description, backdrop, children }) {
+  return (
+    <div className="page-heading" data-backdrop={backdrop}>
+      <div><span className="step-index">{index}</span><span className="heading-copy"><h2>{title}</h2><p>{description}</p></span></div>
+      {children}
+    </div>
+  );
 }
 
 function OperatorMark({ operator, muted = false }) {
@@ -118,6 +128,7 @@ function OperatorMark({ operator, muted = false }) {
 export function App() {
   const configRef = useRef(null);
   const resultRef = useRef(null);
+  const aboutRef = useRef(null);
   const workerRef = useRef(null);
   const progressTimerRef = useRef(null);
   const [mode, setMode] = useState("afk");
@@ -126,7 +137,6 @@ export function App() {
   const [promotions, setPromotions] = useState(() => Object.fromEntries(OPERATORS.map((operator) => [operator.id, 4])));
   const [operatorSearch, setOperatorSearch] = useState("");
   const [facilityFilter, setFacilityFilter] = useState("all");
-  const [ownedOnly, setOwnedOnly] = useState(false);
   const [manufacturingRecipes, setManufacturingRecipes] = useState(() => ({ ...DEFAULT_MANUFACTURING_RECIPES }));
   const [growthCategory, setGrowthCategory] = useState("rare-mineral");
   const [axisScope, setAxisScope] = useState("shared");
@@ -139,18 +149,27 @@ export function App() {
   const [dailySummary, setDailySummary] = useState(null);
   const [assignments, setAssignments] = useState(emptyAssignments);
   const [shiftAssignments, setShiftAssignments] = useState(() => emptyShiftAssignments(2));
+  const [lastResultInputs, setLastResultInputs] = useState(null);
 
   const filteredOperators = useMemo(() => {
     const query = operatorSearch.trim().toLowerCase();
     return OPERATORS.filter((operator) => {
       const matchesSearch = !query || operator.name.toLowerCase().includes(query) || operator.id.includes(query);
       const matchesFacility = facilityFilter === "all" || operator.skills.some((skill) => skill.facility === facilityFilter);
-      return matchesSearch && matchesFacility && (!ownedOnly || selected.includes(operator.id));
+      return matchesSearch && matchesFacility;
     });
-  }, [facilityFilter, operatorSearch, ownedOnly, selected]);
+  }, [facilityFilter, operatorSearch]);
 
   const canCalculate = selected.length >= 3 && (mode === "afk" || loginTimes.length > 0);
   const allOperatorsSelected = selected.length === OPERATORS.length;
+  const calculationHint = calculationError || (!canCalculate
+    ? (selected.length < 3 ? "至少选择 3 名干员" : "至少添加 1 个上线时间")
+    : mode === "afk" ? `将自动搜索${AXIS_SCOPES[axisScope].label}` : "条件已就绪，可以生成排班");
+  const resultMode = lastResultInputs?.mode ?? mode;
+  const resultManufacturingRecipes = lastResultInputs?.manufacturingRecipes ?? manufacturingRecipes;
+  const resultGrowthCategory = lastResultInputs?.growthCategory ?? growthCategory;
+  const resultLoginTimes = lastResultInputs?.loginTimes ?? loginTimes;
+  const resultAxisScope = lastResultInputs?.axisScope ?? axisScope;
 
   useEffect(() => () => {
     workerRef.current?.terminate();
@@ -164,7 +183,6 @@ export function App() {
     progressTimerRef.current = null;
   }
   function invalidate() {
-    setCalculated(false);
     setCalculationError("");
     if (workerRef.current) {
       stopCalculation();
@@ -198,10 +216,20 @@ export function App() {
     setBusy(true);
     setCalculationError("");
     setProgress(2);
+    const calculationRequest = {
+      mode,
+      rooms: ROOM_META,
+      selected: [...selected],
+      promotions: { ...promotions },
+      manufacturingRecipes: { ...manufacturingRecipes },
+      growthCategory,
+      loginTimes: [...loginTimes],
+      axisScope,
+    };
     const worker = new Worker(new URL("./calculation.worker.js", import.meta.url), { type: "module" });
     workerRef.current = worker;
     const startedAt = performance.now();
-    const expectedDuration = mode === "shift" ? 1200 : axisScope === "facility" ? 33000 : 13000;
+    const expectedDuration = calculationRequest.mode === "shift" ? 1200 : calculationRequest.axisScope === "facility" ? 33000 : 13000;
     progressTimerRef.current = window.setInterval(() => {
       const elapsedFraction = (performance.now() - startedAt) / expectedDuration;
       setProgress((current) => Math.max(current, Math.min(92, 4 + (elapsedFraction * 86))));
@@ -216,6 +244,13 @@ export function App() {
       setAssignments(data.assignments);
       setShiftAssignments(data.shiftAssignments);
       setDailySummary(data.summary);
+      setLastResultInputs({
+        mode: calculationRequest.mode,
+        manufacturingRecipes: calculationRequest.manufacturingRecipes,
+        growthCategory: calculationRequest.growthCategory,
+        loginTimes: calculationRequest.loginTimes,
+        axisScope: calculationRequest.axisScope,
+      });
       setProgress(100);
       window.setTimeout(() => {
         setBusy(false); setCalculated(true); setActiveSection("result");
@@ -230,16 +265,7 @@ export function App() {
       setProgress(0);
       setCalculationError("计算未完成，请重试");
     };
-    worker.postMessage({
-      mode,
-      rooms: ROOM_META,
-      selected,
-      promotions,
-      manufacturingRecipes,
-      growthCategory,
-      loginTimes,
-      axisScope,
-    });
+    worker.postMessage(calculationRequest);
   }
   function goToSection(section, targetRef) {
     if (section === "result" && !calculated) return;
@@ -253,20 +279,20 @@ export function App() {
         <div className="rail-steps">
           <button className={`rail-step ${activeSection === "config" ? "rail-step--active" : ""}`} aria-label="配置计算参数" onClick={() => goToSection("config", configRef)}><SlidersHorizontal size={21} weight="bold" /><span>配置</span></button>
           <button className={`rail-step ${activeSection === "result" ? "rail-step--active" : ""}`} aria-label="查看计算结果" onClick={() => goToSection("result", resultRef)} disabled={!calculated} title={calculated ? "查看上次计算结果" : "完成计算后查看结果"}><ChartLineUp size={21} weight="bold" /><span>结果</span></button>
+          <button className={`rail-step ${activeSection === "about" ? "rail-step--active" : ""}`} aria-label="查看项目说明" onClick={() => goToSection("about", aboutRef)}><Info size={21} weight="bold" /><span>关于</span></button>
         </div>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
-          <div className="topbar-title"><p className="eyebrow">// DIJIANG / SHIFT CALCULATOR</p><h1>帝江排班计算器</h1></div>
+          <div className="topbar-title"><h1>帝江排班计算器</h1><p className="eyebrow">// DIJIANG / SHIFT CALCULATOR</p></div>
         </header>
         <div className="calculator-layout">
           {activeSection === "config" && (
           <section className="config-panel page-enter" ref={configRef} tabIndex={-1}>
-            <div className="panel-heading">
-              <div><span className="step-index">01</span><span className="heading-copy"><h2>设置计算条件</h2><p>选择策略、产出方向与参与计算的干员</p></span></div>
-              <span className="selection-count">已选 {selected.length}/{OPERATORS.length}</span>
-            </div>
+            <PageHeading index="01" title="基建配置" description="选择策略、产出方向与参与计算的干员" backdrop="CONFIGURATION">
+              <button className="page-heading__action page-heading__action--forward" onClick={calculate} disabled={busy || !canCalculate} title={calculationHint} aria-label={`生成排班结果。${calculationHint}`}><Calculator size={21} weight="fill" />{busy ? (mode === "afk" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button>
+            </PageHeading>
 
             <div className="config-workbench">
               <div className="config-controls">
@@ -300,7 +326,6 @@ export function App() {
                         <span><strong>分设施启动轴</strong><small>每个设施分别搜索，优先长期产出</small></span><em>精细</em>
                       </button>
                     </div>
-                    <p className="cadence-note">算法完整枚举 30 分钟网格，并使用更长周期复核候选；以计入停产后的长期产效为主、覆盖率为次。非总控仍只组成全减耗或无减耗小组。</p>
                   </fieldset>
                 )}
                 {mode === "shift" && (
@@ -310,7 +335,6 @@ export function App() {
                     <div className="time-add"><input aria-label="新增上线时间" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} /><button onClick={addTime}><Plus size={16} weight="bold" />添加</button></div>
                   </fieldset>
                 )}
-                <aside className="assumption-card"><ShieldCheck size={22} weight="fill" /><div><strong>模拟口径</strong><p>{mode === "afk" ? "首次进驻按满心情；之后按 7%/小时消耗、总控 12%/小时恢复，模拟自动下班与满心情返岗。未计好友助力和手动补心情。" : "按多日连续状态模拟整组换班；接班时继承干员实际心情，归零后自动休息、回满后若仍在本班则返岗。未计好友助力。"}</p></div></aside>
               </div>
 
               <fieldset className="field-group field-group--operators">
@@ -318,7 +342,7 @@ export function App() {
                 <div className="operator-toolbar">
                   <label className="operator-search"><MagnifyingGlass size={17} weight="bold" /><input value={operatorSearch} onChange={(event) => setOperatorSearch(event.target.value)} placeholder="搜索干员" /></label>
                   <label className="operator-filter"><span>设施</span><select value={facilityFilter} onChange={(event) => setFacilityFilter(event.target.value)}><option value="all">全部设施</option>{FACILITIES.map((facility) => <option value={facility} key={facility}>{facility}</option>)}</select></label>
-                  <button className={`owned-filter ${ownedOnly ? "is-active" : ""}`} aria-pressed={ownedOnly} onClick={() => setOwnedOnly((current) => !current)}>仅看已拥有</button>
+                  <span className="selection-count operator-selection-count">已选 {selected.length}/{OPERATORS.length}</span>
                   <button className={`select-all-button ${allOperatorsSelected ? "is-active" : ""}`} aria-pressed={allOperatorsSelected} onClick={toggleAllOperators}>{allOperatorsSelected ? "全不选" : `全选 ${OPERATORS.length}`}</button>
                 </div>
                 <div className="operator-list">
@@ -345,22 +369,20 @@ export function App() {
               </fieldset>
             </div>
 
-            <div className="config-actionbar"><div><span>NEXT / 02</span><strong>{calculationError || (!canCalculate ? (selected.length < 3 ? "至少选择 3 名干员" : "至少添加 1 个上线时间") : mode === "afk" ? `将自动搜索${AXIS_SCOPES[axisScope].label}` : "条件已就绪，可以生成排班")}</strong></div><button className="calculate-button" onClick={calculate} disabled={busy || !canCalculate}><Calculator size={21} weight="fill" />{busy ? (mode === "afk" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button></div>
           </section>
           )}
 
           {activeSection === "result" && calculated && (
           <section className="result-panel page-enter" aria-live="polite" ref={resultRef} tabIndex={-1}>
-            <div className="result-header">
-              <div><span className="step-index">02</span><p>{mode === "afk" ? "长期挂机推荐" : "固定上线倒班推荐"}</p><h2>计算完成，建议按此排班</h2></div>
-              <div className="result-actions"><div className="result-status"><span className="status-dot" />结果可用</div><button className="edit-config-button" onClick={() => goToSection("config", configRef)}><ArrowLeft size={17} weight="bold" />修改配置</button></div>
-            </div>
+            <PageHeading index="02" title="计算结果" description={resultMode === "afk" ? "长期挂机推荐" : "固定上线倒班推荐"} backdrop="RESULT">
+              <button className="page-heading__action page-heading__action--back" onClick={() => goToSection("config", configRef)}><ArrowLeft size={20} weight="bold" />修改配置</button>
+            </PageHeading>
             <div className="metric-row">
-              <Metric label="高级认知载体" value={`${dailySummary.cognitive.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
-              <Metric label="高级作战记录" value={`${dailySummary.operator.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
-              <Metric label="武器检查套组" value={`${dailySummary.weapon.toFixed(1)} /日`} note="满级制造舱 · 按实际在岗折算" />
-              <Metric label={`${GROWTH_OPTIONS[growthCategory].label}培养`} value={`${dailySummary.growth.toFixed(2)} /日`} note="3 级培养舱 · 9 个培养箱" />
-              <Metric label="预计线索搜集" value={`${dailySummary.clues.toFixed(2)} /日`} note="按 72 小时基础周期估算" />
+              <Metric label="高级认知载体" value={dailySummary.cognitive.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
+              <Metric label="高级作战记录" value={dailySummary.operator.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
+              <Metric label="武器检查套组" value={dailySummary.weapon.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
+              <Metric label={`${GROWTH_OPTIONS[resultGrowthCategory].label}培养`} value={dailySummary.growth.toFixed(2)} note="培养舱 · 最高等级 · 9 个培养箱" />
+              <Metric label="预计线索搜集" value={dailySummary.clues.toFixed(2)} note="会客室 · 72 小时基础周期" />
             </div>
             <div className="operation-strip" aria-label="排班运行指标">
               <div><span>平均产效</span><strong>{(dailySummary.averageEfficiency * 100).toFixed(0)}%</strong><small>40% 进驻 × 技能乘算</small></div>
@@ -369,23 +391,23 @@ export function App() {
               <div><span>平均停产</span><strong>{dailySummary.averageDowntime.toFixed(2)}h</strong><small>每设施每日</small></div>
             </div>
             <section className="timeline-section">
-              <div className="section-label-row"><div><span>ASSIGNMENT PLAN</span><h3>{mode === "afk" ? "算法推荐启动轴" : "按上线节点进行整组换班"}</h3></div><span className="mode-badge">{mode === "afk" ? AXIS_SCOPES[axisScope].shortLabel : `每日 ${loginTimes.length} 次`}</span></div>
-              <div className={`assignment-board ${mode === "shift" ? "assignment-board--shifts" : "assignment-board--afk"}`}>
+              <div className="section-label-row"><div><span>ASSIGNMENT PLAN</span><h3>{resultMode === "afk" ? "算法推荐启动轴" : "按上线节点进行整组换班"}</h3></div><span className="mode-badge">{resultMode === "afk" ? AXIS_SCOPES[resultAxisScope].shortLabel : `每日 ${resultLoginTimes.length} 次`}</span></div>
+              <div className={`assignment-board ${resultMode === "shift" ? "assignment-board--shifts" : "assignment-board--afk"}`}>
                 {RESULT_ROOM_META.map((room, roomIndex) => {
                   const roomOperators = assignments[room.id];
                   const roomSummary = dailySummary.rooms[room.id];
-                  const startOffsets = mode === "afk" ? (dailySummary.startup.offsetsByRoom[room.id] ?? []) : [];
+                  const startOffsets = resultMode === "afk" ? (dailySummary.startup.offsetsByRoom[room.id] ?? []) : [];
                   const scheduledOperators = roomOperators
                     .map((operator, operatorIndex) => ({ operator, startOffset: startOffsets[operatorIndex] ?? 0, operatorIndex }))
                     .sort((left, right) => left.startOffset - right.startOffset || left.operatorIndex - right.operatorIndex);
                   return (
                     <article className="facility-lane" key={room.id}>
-                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, manufacturingRecipes, growthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}</span></div>
-                      {mode === "afk" ? (
-                        <div className="lane-assignments">{scheduledOperators.length ? scheduledOperators.map(({ operator, startOffset }, index) => <div className="assignment-slot" key={operator.id}><div className="assignment-time" aria-label={formatStartOffset(startOffset)} title={formatStartOffset(startOffset)}>{formatStartOffsetLabel(startOffset)}</div><div className="assignment-cell" style={{ "--delay": `${index * 55 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={manufacturingRecipes} growthCategory={growthCategory} team={roomOperators} /></span></div></div>) : <div className="empty-lane">当前干员数量不足</div>}</div>
+                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, resultManufacturingRecipes, resultGrowthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}</span></div>
+                      {resultMode === "afk" ? (
+                        <div className="lane-assignments">{scheduledOperators.length ? scheduledOperators.map(({ operator, startOffset }, index) => <div className="assignment-slot" key={operator.id}><div className="assignment-time" aria-label={formatStartOffset(startOffset)} title={formatStartOffset(startOffset)}>{formatStartOffsetLabel(startOffset)}</div><div className="assignment-cell" style={{ "--delay": `${index * 55 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={resultManufacturingRecipes} growthCategory={resultGrowthCategory} team={roomOperators} /></span></div></div>) : <div className="empty-lane">当前干员数量不足</div>}</div>
                       ) : (
-                        <div className="lane-assignments lane-assignments--shifts" style={{ "--shift-count": loginTimes.length }}>
-                          {(shiftAssignments[room.id] ?? []).map((shiftOperators, shiftIndex) => <section className="shift-block" key={`${room.id}-${loginTimes[shiftIndex]}`}><header className="shift-block__header"><span>班次 {String(shiftIndex + 1).padStart(2, "0")}</span><strong>{loginTimes[shiftIndex]}</strong></header><div className="shift-operators">{shiftOperators.length ? shiftOperators.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={`${operator.id}-${shiftIndex}`} style={{ "--delay": `${index * 45 + shiftIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={manufacturingRecipes} growthCategory={growthCategory} team={shiftOperators} /></span></div>) : <div className="empty-lane">本班保留空位</div>}</div></section>)}
+                        <div className="lane-assignments lane-assignments--shifts" style={{ "--shift-count": resultLoginTimes.length }}>
+                          {(shiftAssignments[room.id] ?? []).map((shiftOperators, shiftIndex) => <section className="shift-block" key={`${room.id}-${resultLoginTimes[shiftIndex]}`}><header className="shift-block__header"><span>班次 {String(shiftIndex + 1).padStart(2, "0")}</span><strong>{resultLoginTimes[shiftIndex]}</strong></header><div className="shift-operators">{shiftOperators.length ? shiftOperators.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={`${operator.id}-${shiftIndex}`} style={{ "--delay": `${index * 45 + shiftIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={resultManufacturingRecipes} growthCategory={resultGrowthCategory} team={shiftOperators} /></span></div>) : <div className="empty-lane">本班保留空位</div>}</div></section>)}
                         </div>
                       )}
                     </article>
@@ -393,7 +415,72 @@ export function App() {
                 })}
               </div>
             </section>
-            <footer className="result-footer"><div className="explain-block"><UsersThree size={22} weight="fill" /><div><strong>产量口径</strong><p>{mode === "afk" ? "跨舱室按各生产设施的标准化产效等权比较；完整枚举半小时启动轴，以 180 日预热、随后 90 日平均复核。每个时间片按实际在岗人数计算：(1 + 40% × 人数) × (1 + 当前配方技能合计)。" : "跨舱室按标准化产效等权比较；每个上线节点整组换班，并在多日模拟中连续追踪工作、归零、休息与返岗。定向线索只改变类型概率，不计入线索总量。"}</p></div></div><div className="run-code">BASE 40% × SKILL</div></footer>
+          </section>
+          )}
+
+          {activeSection === "about" && (
+          <section className="about-panel page-enter" ref={aboutRef} tabIndex={-1}>
+            <header className="about-header">
+              <div className="about-title"><Info size={28} weight="fill" /><span><p>ABOUT / METHOD</p><h2>关于本项目</h2></span></div>
+              <a className="about-repo-link" href={REPOSITORY_URL} target="_blank" rel="noreferrer"><GithubLogo size={20} weight="fill" />查看 GitHub 仓库<ArrowSquareOut size={16} weight="bold" /></a>
+            </header>
+
+            <div className="about-intro">
+              <p>帝江排班计算器根据手动选择的干员、练度与生产目标，比较长期挂机和定点倒班的稳定周期收益，并给出可直接照做的排班。计算允许出现停产；只有停产后的长期日产量确实更高时，才会采用该方案。</p>
+            </div>
+
+            <div className="about-grid">
+              <section className="about-section">
+                <span className="about-section__code">MODE</span>
+                <h3>两种排班模式</h3>
+                <dl className="about-definitions">
+                  <div><dt>挂机方案</dt><dd>从满心情开始，干员心情归零后自动下班，恢复满后自动返岗；算法搜索错峰进驻时间，以长期日产量选择启动轴。</dd></div>
+                  <div><dt>定点倒班</dt><dd>每个上线时间都是一次整组换班；干员心情跨班次、跨天连续继承，不会在接班时重置为满值。</dd></div>
+                </dl>
+              </section>
+
+              <section className="about-section">
+                <span className="about-section__code">STATE</span>
+                <h3>心情与技能</h3>
+                <dl className="about-definitions">
+                  <div><dt>工作消耗</dt><dd>基础为每小时 7% 心情；舱室减耗技能作用于整个舱室。总控外不会混用减耗与普通干员，避免自动轮换乱轴。</dd></div>
+                  <div><dt>休息恢复</dt><dd>基础为每小时 12%，再乘总控中枢心情恢复技能加成。未计好友助力和手动补心情。</dd></div>
+                  <div><dt>练度</dt><dd>E0–E4 决定两个基建技能槽的解锁与升级；没有匹配技能的干员仍可提供通用进驻加成。</dd></div>
+                </dl>
+              </section>
+
+              <section className="about-section about-section--wide">
+                <span className="about-section__code">SOLVER</span>
+                <h3>大致算法</h3>
+                <ol className="solver-steps">
+                  <li><span>01</span><div><strong>建立状态</strong><p>根据练度解析技能，为五个舱室生成候选组合，并固定两个制造配方与一个培养质料类型。</p></div></li>
+                  <li><span>02</span><div><strong>模拟运行</strong><p>逐时间片追踪在岗人数、心情消耗、休息恢复、自动下班与返岗；定点倒班则按用户输入的上线节点整组替换。</p></div></li>
+                  <li><span>03</span><div><strong>搜索启动轴</strong><p>挂机模式枚举 30 分钟网格，经过 180 日预热后再取 90 日稳定周期平均；覆盖率只在产量相同时用于比较。</p></div></li>
+                  <li><span>04</span><div><strong>比较产出</strong><p>每个生产时间片按（1 + 40% × 在岗人数）×（1 + 当前配方适用技能合计）计算，并将停产时间计入最终日产量。</p></div></li>
+                </ol>
+              </section>
+
+              <section className="about-section">
+                <span className="about-section__code">OUTPUT</span>
+                <h3>产量口径</h3>
+                <ul className="about-list">
+                  <li>制造舱按满级设施与公开产品耗时，分别计算高级认知载体、高级作战记录和武器检查套组。</li>
+                  <li>培养舱在整次模拟中固定为矿物、晶植或菌类质料，不在运行中切换。</li>
+                  <li>跨舱室使用等权标准化产效比较，最终仍分别展示制造、培养和线索结果，不混成一种资源总量。</li>
+                </ul>
+              </section>
+
+              <section className="about-section">
+                <span className="about-section__code">LIMIT</span>
+                <h3>数据与边界</h3>
+                <ul className="about-list">
+                  <li>当前收录 29 名具有可确认基建信息的干员；管理员不参与分配。</li>
+                  <li>定向线索技能只作为 L1 / L2 类型倾向，不虚构具体概率，也不额外增加线索总量。</li>
+                  <li>工具不会读取或控制游戏；游戏机制与数值更新后，结果需随数据版本重新校验。</li>
+                </ul>
+                <div className="about-links"><a href={REPOSITORY_URL} target="_blank" rel="noreferrer">源代码<ArrowSquareOut size={14} weight="bold" /></a><a href={`${REPOSITORY_URL}/issues`} target="_blank" rel="noreferrer">问题与建议<ArrowSquareOut size={14} weight="bold" /></a></div>
+              </section>
+            </div>
           </section>
           )}
         </div>
