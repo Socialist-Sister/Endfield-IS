@@ -8,7 +8,8 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Live App](https://img.shields.io/badge/Live%20App-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
+[![Live App](https://img.shields.io/badge/Live%20App-EdgeOne-FFEF3A?style=flat-square&labelColor=171918)](https://www.endfieldis.dpdns.org/)
+[![Vercel](https://img.shields.io/badge/Fallback-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
 [![Operators](https://img.shields.io/badge/Operators-29-F5DD26?style=flat-square&labelColor=171918)](#核心能力)
@@ -38,7 +39,7 @@
 
 | 站点 | 用途 | 地址 |
 |---|---|---|
-| EdgeOne Makers | 面向大陆网络的主部署 | [打开计算器](https://endfield-is-dp0gzaz4ler3.edgeone.dev/) |
+| EdgeOne Makers | 面向大陆网络的主部署 | [打开计算器](https://www.endfieldis.dpdns.org/) |
 | Vercel | 海外与备用部署 | [打开计算器](https://endfield-is.vercel.app/) |
 
 ### 使用流程
@@ -58,6 +59,8 @@
 </div>
 
 界面以终末地官网为主要视觉参考，使用黑、雾白与信号黄构成适合计算工具的信息层级，并适配桌面与窄屏窗口。
+
+以上预览来自 `v0.1.1` 当前界面。
 
 ---
 

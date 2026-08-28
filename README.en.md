@@ -8,7 +8,8 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Live App](https://img.shields.io/badge/Live%20App-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
+[![Live App](https://img.shields.io/badge/Live%20App-EdgeOne-FFEF3A?style=flat-square&labelColor=171918)](https://www.endfieldis.dpdns.org/)
+[![Vercel](https://img.shields.io/badge/Fallback-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
 [![Operators](https://img.shields.io/badge/Operators-29-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
@@ -38,7 +39,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 | Site | Purpose | URL |
 |---|---|---|
-| EdgeOne Makers | Primary mainland-oriented deployment | [Open calculator](https://endfield-is-dp0gzaz4ler3.edgeone.dev/) |
+| EdgeOne Makers | Primary mainland-oriented deployment | [Open calculator](https://www.endfieldis.dpdns.org/) |
 | Vercel | Overseas and fallback deployment | [Open calculator](https://endfield-is.vercel.app/) |
 
 ### Basic Workflow
@@ -58,6 +59,8 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 </div>
 
 The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
+
+The previews above show the current `v0.1.1` interface.
 
 ---
 
