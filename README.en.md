@@ -48,6 +48,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 2. Set a fixed recipe for each manufacturing cabin, a growth-material category, and the scheduling parameters.
 3. Select owned operators and adjust their E0–E4 promotion levels. Every operator defaults to E4, while the roster starts unselected.
 4. Run the solver and review per-facility assignments, startup timing, skill activation, and estimated daily output.
+5. Copy a link to the current configuration or export the calculated schedule as a branded image.
 
 ---
 
@@ -73,6 +74,7 @@ The previews above show the current `v0.1.1` interface.
 - **Continuous morale simulation:** models work drain, Control Nexus recovery, skill modifiers, automatic leave, and full-morale return. Fixed rotations never reset a reused operator to full morale.
 - **Output-first optimization:** optimizes verified stable-cycle daily output and may accept short downtime when fully staffed high-efficiency periods compensate for it.
 - **Non-blocking calculation:** long searches run in a Web Worker with progress shown by a bottom-edge bar.
+- **Client-only sharing:** configuration is compressed into the URL hash without uploading account data, while results can be exported as community-ready schedule images.
 
 ---
 
@@ -125,6 +127,7 @@ Production build and tests:
 ```bash
 npm run build
 node --test tests/schedule-model.test.mjs
+node --test tests/share-tools.test.mjs
 npm run test:sites
 ```
 
@@ -148,6 +151,7 @@ Both sites track the repository's `main` branch and publish automatically.
 | Vercel | `npm install` | `npm run build` | `dist/client` |
 
 Vercel routing and build settings are defined in [`vercel.json`](vercel.json).
+Search and social metadata use the EdgeOne custom domain as the canonical site, while Vercel remains the fallback entry point.
 
 ---
 

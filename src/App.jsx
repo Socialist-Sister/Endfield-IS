@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, ArrowSquareOut, ArrowsClockwise, Calculator, CaretDown,
-  ChartLineUp, Check, ClockCounterClockwise, Crosshair, Cube, Diamond, DotsNine,
-  Factory, GithubLogo, Hexagon, Info, MagnifyingGlass, Plus, SlidersHorizontal,
-  Square, Star, Target, Trash, Triangle,
+  ChartLineUp, Check, ClockCounterClockwise, Crosshair, Cube, Diamond,
+  DotsNine, DownloadSimple, Factory, GithubLogo, Hexagon, Info, LinkSimple,
+  MagnifyingGlass, Plus, SlidersHorizontal, Square, Star, Target, Trash, Triangle,
 } from "@phosphor-icons/react";
 import { FACILITIES, OPERATORS, getOperatorSkillSummary } from "./operatorData.js";
 import {
@@ -13,6 +13,12 @@ import {
   manufacturingRecipeId,
   manufacturingSkillCategory,
 } from "./scheduleModel.js";
+import {
+  buildConfigurationShareUrl,
+  copyText,
+  decodeSharedConfiguration,
+  downloadResultCard,
+} from "./shareTools.js";
 
 const INITIAL_SELECTED = [];
 const REPOSITORY_URL = "https://github.com/Socialist-Sister/Endfield-IS";
@@ -31,6 +37,35 @@ const GROWTH_OPTIONS = {
   vitrified: { label: "晶植质料" },
   fungal: { label: "菌类质料" },
 };
+const OPERATOR_IDS = new Set(OPERATORS.map((operator) => operator.id));
+const RECIPE_IDS = new Set(Object.keys(MANUFACTURING_RECIPES));
+const GROWTH_IDS = new Set(Object.keys(GROWTH_OPTIONS));
+
+function readSharedConfiguration() {
+  if (typeof window === "undefined") return null;
+  const shared = decodeSharedConfiguration(window.location.hash);
+  if (!shared) return null;
+  const selected = [...new Set(shared.selected.filter((operatorId) => OPERATOR_IDS.has(operatorId)))];
+  const promotions = Object.fromEntries(OPERATORS.map((operator) => {
+    const value = Number(shared.promotions?.[operator.id] ?? 4);
+    return [operator.id, Number.isInteger(value) && value >= 0 && value <= 4 ? value : 4];
+  }));
+  const defaultRecipes = { ...DEFAULT_MANUFACTURING_RECIPES };
+  const manufacturingRecipes = Object.fromEntries(Object.keys(defaultRecipes).map((roomId) => {
+    const recipeId = shared.manufacturingRecipes?.[roomId];
+    return [roomId, RECIPE_IDS.has(recipeId) ? recipeId : defaultRecipes[roomId]];
+  }));
+  const loginTimes = [...new Set(shared.loginTimes.filter((time) => /^([01]\d|2[0-3]):[0-5]\d$/u.test(time)))].sort();
+  return {
+    mode: shared.mode === "shift" ? "shift" : "afk",
+    selected,
+    promotions,
+    manufacturingRecipes,
+    growthCategory: GROWTH_IDS.has(shared.growthCategory) ? shared.growthCategory : "rare-mineral",
+    axisScope: Object.hasOwn(AXIS_SCOPES, shared.axisScope) ? shared.axisScope : "shared",
+    loginTimes: loginTimes.length ? loginTimes : ["08:00", "22:30"],
+  };
+}
 const emptyAssignments = () => Object.fromEntries(ROOM_META.map((room) => [room.id, []]));
 const emptyShiftAssignments = (shiftCount) => Object.fromEntries(ROOM_META.map((room) => [room.id, Array.from({ length: shiftCount }, () => [])]));
 function getRoomRecipe(room, manufacturingRecipes, growthCategory, summary) {
@@ -106,8 +141,9 @@ function Metric({ label, value, period = "日均", note }) {
 
 function PageHeading({ index, title, description, backdrop, children }) {
   return (
-    <div className="page-heading" data-backdrop={backdrop}>
+    <div className="page-heading">
       <div><span className="step-index">{index}</span><span className="heading-copy"><h2>{title}</h2><p>{description}</p></span></div>
+      <span className="page-heading__backdrop" aria-hidden="true"><span>{backdrop}</span></span>
       {children}
     </div>
   );
@@ -126,21 +162,23 @@ function OperatorMark({ operator, muted = false }) {
 }
 
 export function App() {
+  const sharedConfiguration = useMemo(readSharedConfiguration, []);
   const configRef = useRef(null);
   const resultRef = useRef(null);
   const aboutRef = useRef(null);
   const workerRef = useRef(null);
   const progressTimerRef = useRef(null);
-  const [mode, setMode] = useState("afk");
+  const utilityNoticeTimerRef = useRef(null);
+  const [mode, setMode] = useState(sharedConfiguration?.mode ?? "afk");
   const [activeSection, setActiveSection] = useState("config");
-  const [selected, setSelected] = useState(INITIAL_SELECTED);
-  const [promotions, setPromotions] = useState(() => Object.fromEntries(OPERATORS.map((operator) => [operator.id, 4])));
+  const [selected, setSelected] = useState(sharedConfiguration?.selected ?? INITIAL_SELECTED);
+  const [promotions, setPromotions] = useState(() => sharedConfiguration?.promotions ?? Object.fromEntries(OPERATORS.map((operator) => [operator.id, 4])));
   const [operatorSearch, setOperatorSearch] = useState("");
   const [facilityFilter, setFacilityFilter] = useState("all");
-  const [manufacturingRecipes, setManufacturingRecipes] = useState(() => ({ ...DEFAULT_MANUFACTURING_RECIPES }));
-  const [growthCategory, setGrowthCategory] = useState("rare-mineral");
-  const [axisScope, setAxisScope] = useState("shared");
-  const [loginTimes, setLoginTimes] = useState(["08:00", "22:30"]);
+  const [manufacturingRecipes, setManufacturingRecipes] = useState(() => sharedConfiguration?.manufacturingRecipes ?? ({ ...DEFAULT_MANUFACTURING_RECIPES }));
+  const [growthCategory, setGrowthCategory] = useState(sharedConfiguration?.growthCategory ?? "rare-mineral");
+  const [axisScope, setAxisScope] = useState(sharedConfiguration?.axisScope ?? "shared");
+  const [loginTimes, setLoginTimes] = useState(sharedConfiguration?.loginTimes ?? ["08:00", "22:30"]);
   const [newTime, setNewTime] = useState("13:00");
   const [calculated, setCalculated] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -150,6 +188,7 @@ export function App() {
   const [assignments, setAssignments] = useState(emptyAssignments);
   const [shiftAssignments, setShiftAssignments] = useState(() => emptyShiftAssignments(2));
   const [lastResultInputs, setLastResultInputs] = useState(null);
+  const [utilityNotice, setUtilityNotice] = useState("");
 
   const filteredOperators = useMemo(() => {
     const query = operatorSearch.trim().toLowerCase();
@@ -174,13 +213,23 @@ export function App() {
   useEffect(() => () => {
     workerRef.current?.terminate();
     if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+    if (utilityNoticeTimerRef.current) window.clearTimeout(utilityNoticeTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (sharedConfiguration) showUtilityNotice(`已载入分享配置 · ${sharedConfiguration.selected.length} 名干员`);
+  }, [sharedConfiguration]);
 
   function stopCalculation() {
     workerRef.current?.terminate();
     workerRef.current = null;
     if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
     progressTimerRef.current = null;
+  }
+  function showUtilityNotice(message) {
+    setUtilityNotice(message);
+    if (utilityNoticeTimerRef.current) window.clearTimeout(utilityNoticeTimerRef.current);
+    utilityNoticeTimerRef.current = window.setTimeout(() => setUtilityNotice(""), 2600);
   }
   function invalidate() {
     setCalculationError("");
@@ -210,6 +259,62 @@ export function App() {
     if (!newTime || loginTimes.includes(newTime)) return;
     setLoginTimes((current) => [...current, newTime].sort());
     invalidate();
+  }
+  async function copyConfigurationLink() {
+    const url = buildConfigurationShareUrl({ mode, selected, promotions, manufacturingRecipes, growthCategory, axisScope, loginTimes });
+    try {
+      await copyText(url);
+      showUtilityNotice(`配置链接已复制 · ${selected.length} 名干员`);
+    } catch {
+      showUtilityNotice("浏览器未允许复制，请从地址栏手动复制");
+    }
+  }
+  async function exportResultImage() {
+    const rows = RESULT_ROOM_META.flatMap((room) => {
+      const roomOperators = assignments[room.id] ?? [];
+      const roomSummary = dailySummary.rooms[room.id];
+      const memberDetail = (operator, team) => getAssignmentSkills(
+        operator,
+        room,
+        resultManufacturingRecipes,
+        resultGrowthCategory,
+        team,
+      ).filter((skill) => skill.applies).map((skill) => skill.activeTier?.description).join("；") || "通用进驻";
+      const stat = room.id === "control"
+        ? `恢复 ${dailySummary.moodRecovery.toFixed(1)}% / 小时`
+        : `产效 ${(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 ${(roomSummary.coverageRate * 100).toFixed(0)}%`;
+      const groups = resultMode === "afk"
+        ? roomOperators.map((operator, operatorIndex) => ({
+          offset: dailySummary.startup.offsetsByRoom[room.id]?.[operatorIndex] ?? 0,
+          members: [{ name: operator.name, detail: memberDetail(operator, roomOperators) }],
+        })).sort((left, right) => left.offset - right.offset).map((group) => ({
+          label: `T ${formatStartOffsetLabel(group.offset)}`,
+          members: group.members,
+        }))
+        : (shiftAssignments[room.id] ?? []).map((team, shiftIndex) => ({
+          label: `班次 ${String(shiftIndex + 1).padStart(2, "0")} · ${resultLoginTimes[shiftIndex]}`,
+          members: team.map((operator) => ({ name: operator.name, detail: memberDetail(operator, team) })),
+        }));
+      const chunks = [];
+      for (let index = 0; index < groups.length || index === 0; index += 4) chunks.push(groups.slice(index, index + 4));
+      return chunks.map((groupChunk, chunkIndex) => ({
+        name: chunkIndex ? `${room.name} · 续` : room.name,
+        meta: getRoomRecipe(room, resultManufacturingRecipes, resultGrowthCategory, dailySummary),
+        stat,
+        groups: groupChunk,
+      }));
+    });
+    try {
+      await downloadResultCard({
+        mode: resultMode,
+        summary: dailySummary,
+        growthLabel: GROWTH_OPTIONS[resultGrowthCategory].label,
+        rows,
+      });
+      showUtilityNotice("排班图已生成");
+    } catch {
+      showUtilityNotice("排班图生成失败，请重试");
+    }
   }
   function calculate() {
     stopCalculation();
@@ -291,7 +396,10 @@ export function App() {
           {activeSection === "config" && (
           <section className="config-panel page-enter" ref={configRef} tabIndex={-1}>
             <PageHeading index="01" title="基建配置" description="选择策略、产出方向与参与计算的干员" backdrop="CONFIGURATION">
-              <button className="page-heading__action page-heading__action--forward" onClick={calculate} disabled={busy || !canCalculate} title={calculationHint} aria-label={`生成排班结果。${calculationHint}`}><Calculator size={21} weight="fill" />{busy ? (mode === "afk" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button>
+              <div className="page-heading__actions">
+                <button className="page-heading__action page-heading__action--secondary" onClick={copyConfigurationLink}><LinkSimple size={20} weight="bold" />复制配置链接</button>
+                <button className="page-heading__action page-heading__action--forward" onClick={calculate} disabled={busy || !canCalculate} title={calculationHint} aria-label={`生成排班结果。${calculationHint}`}><Calculator size={21} weight="fill" />{busy ? (mode === "afk" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button>
+              </div>
             </PageHeading>
 
             <div className="config-workbench">
@@ -375,7 +483,10 @@ export function App() {
           {activeSection === "result" && calculated && (
           <section className="result-panel page-enter" aria-live="polite" ref={resultRef} tabIndex={-1}>
             <PageHeading index="02" title="计算结果" description={resultMode === "afk" ? "长期挂机推荐" : "固定上线倒班推荐"} backdrop="RESULT">
-              <button className="page-heading__action page-heading__action--back" onClick={() => goToSection("config", configRef)}><ArrowLeft size={20} weight="bold" />修改配置</button>
+              <div className="page-heading__actions">
+                <button className="page-heading__action page-heading__action--secondary" onClick={exportResultImage}><DownloadSimple size={20} weight="bold" />导出排班图</button>
+                <button className="page-heading__action page-heading__action--back" onClick={() => goToSection("config", configRef)}><ArrowLeft size={20} weight="bold" />修改配置</button>
+              </div>
             </PageHeading>
             <div className="metric-row">
               <Metric label="高级认知载体" value={dailySummary.cognitive.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
@@ -497,6 +608,7 @@ export function App() {
           <span style={{ width: `${progress}%` }} />
         </div>
       )}
+      {utilityNotice && <div className="utility-toast" role="status"><Info size={17} weight="fill" />{utilityNotice}</div>}
     </main>
   );
 }

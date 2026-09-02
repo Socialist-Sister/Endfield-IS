@@ -48,6 +48,7 @@
 2. 设置两个制造舱的固定配方、培养材料类别，以及对应的排班参数。
 3. 勾选已拥有干员并调整 E0–E4 练度；所有干员默认 E4，但初始均不勾选。
 4. 开始计算，查看逐舱排班、启动时间、技能生效状态和预计日产量。
+5. 复制当前配置链接，或将计算结果导出为带主站地址的排班图。
 
 ---
 
@@ -73,6 +74,7 @@
 - **连续心情模拟**：模拟工作消耗、总控恢复、技能修正、自动下班与满心返岗；定点换班不会把复用干员重置为满心情。
 - **真实产量目标**：以稳定周期的实际日产量优化方案，允许在收益更高时出现短暂停工，而不是把 100% 覆盖率设为硬约束。
 - **非阻塞计算**：长时间搜索在 Web Worker 中运行，并用贴底进度条显示进度。
+- **纯前端分享**：配置压缩到 URL 哈希中，不上传账号数据；结果页可直接生成适合社区发布的排班图。
 
 ---
 
@@ -125,6 +127,7 @@ npm run dev
 ```bash
 npm run build
 node --test tests/schedule-model.test.mjs
+node --test tests/share-tools.test.mjs
 npm run test:sites
 ```
 
@@ -148,6 +151,7 @@ React 19 · Vite 6 · Phosphor Icons · Web Worker · Node.js 原生测试运行
 | Vercel | `npm install` | `npm run build` | `dist/client` |
 
 Vercel 的路由与构建设置见 [`vercel.json`](vercel.json)。
+搜索与社交分享统一以 EdgeOne 自定义域名作为 canonical 主站，Vercel 保留为备用访问入口。
 
 ---
 

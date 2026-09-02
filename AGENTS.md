@@ -67,6 +67,7 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 - Long calculations run off the main UI thread and show a slim signal-yellow progress bar fixed flush to the bottom edge; the bar reaches 100% and then dismisses when results are ready.
 - Use specific labels such as “模拟口径” and “产量口径” to explain assumptions at the point they affect the result; avoid generic boundary or disclaimer copy.
 - Keep `README.md` and `README.en.md` structurally mirrored. Use a centered bilingual project header, truthful status badges, compact `<kbd>` topic tags, a short contents list, paired interface previews, and concise tables for calculation and deployment details.
+- Keep sharing client-only and visibly integrated with the existing page-heading actions: configuration links encode only manual inputs in the URL hash, and result images are rendered locally as square-cornered black/fog-white/signal-yellow schedule cards. Use the EdgeOne custom domain as the canonical URL and Vercel only as a fallback deployment.
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
