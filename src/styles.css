@@ -55,8 +55,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 
 .page-heading { position: relative; min-height: 84px; padding: 14px 16px; border-top: 1px solid #000; border-bottom: 1px solid #000; overflow: hidden; background: var(--paper); }
 .page-heading > div:first-child { position: relative; z-index: 1; padding-right: 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 13px; background: var(--paper); }
-.page-heading__backdrop { min-width: 0; align-self: stretch; flex: 1 1 auto; overflow: hidden; container: heading-backdrop / inline-size; display: flex; align-items: center; justify-content: flex-end; color: #bfc2bf; pointer-events: none; opacity: .42; }
-.page-heading__backdrop span { font-family: var(--font-display); font-size: clamp(38px, 5vw, 72px); font-weight: 800; line-height: 1; letter-spacing: -.05em; white-space: nowrap; }
+.page-heading__backdrop { min-width: 0; margin-block: -14px; align-self: stretch; flex: 1 1 auto; overflow: hidden; container: heading-backdrop / inline-size; display: flex; align-items: flex-end; justify-content: flex-end; color: #bfc2bf; pointer-events: none; opacity: .42; }
+.page-heading__backdrop span { margin-bottom: -5px; font-family: var(--font-display); font-size: clamp(38px, 5vw, 72px); font-weight: 800; line-height: 1; letter-spacing: -.05em; white-space: nowrap; }
 @container heading-backdrop (max-width: 430px) { .page-heading__backdrop span { display: none; } }
 .heading-copy { display: flex; flex-direction: column; gap: 4px; }
 .heading-copy p { margin: 0; color: var(--muted); font-size: 12px; }

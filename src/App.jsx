@@ -395,7 +395,7 @@ export function App() {
         <div className="calculator-layout">
           {activeSection === "config" && (
           <section className="config-panel page-enter" ref={configRef} tabIndex={-1}>
-            <PageHeading index="01" title="基建配置" description="选择策略、产出方向与参与计算的干员" backdrop="CONFIGURATION">
+            <PageHeading index="01" title="基建配置" description="选择策略、产出与干员" backdrop="CONFIGURATION">
               <div className="page-heading__actions">
                 <button className="page-heading__action page-heading__action--secondary" onClick={copyConfigurationLink}><LinkSimple size={20} weight="bold" />复制配置链接</button>
                 <button className="page-heading__action page-heading__action--forward" onClick={calculate} disabled={busy || !canCalculate} title={calculationHint} aria-label={`生成排班结果。${calculationHint}`}><Calculator size={21} weight="fill" />{busy ? (mode === "afk" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button>
@@ -585,7 +585,7 @@ export function App() {
                 <span className="about-section__code">LIMIT</span>
                 <h3>数据与边界</h3>
                 <ul className="about-list">
-                  <li>当前收录 29 名具有可确认基建信息的干员；管理员不参与分配。</li>
+                  <li>当前收录 30 名具有可确认基建信息的干员；管理员不参与分配。</li>
                   <li>定向线索技能只作为 L1 / L2 类型倾向，不虚构具体概率，也不额外增加线索总量。</li>
                   <li>工具不会读取或控制游戏；游戏机制与数值更新后，结果需随数据版本重新校验。</li>
                 </ul>

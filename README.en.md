@@ -12,7 +12,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 [![Vercel](https://img.shields.io/badge/Fallback-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
-[![Operators](https://img.shields.io/badge/Operators-29-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
+[![Operators](https://img.shields.io/badge/Operators-30-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
 
 <kbd>AFK Solver</kbd> <kbd>Fixed Rotation</kbd> <kbd>Morale Simulation</kbd> <kbd>Production Estimate</kbd>
 
@@ -61,13 +61,13 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
 
-The previews above show the current `v0.1.1` interface.
+The previews above show the current `v0.1.2` interface.
 
 ---
 
 ## Key Capabilities
 
-- **29 assignable operators:** excludes both Administrator variants because reliable infrastructure data is unavailable; operators without matching skills remain valid universal staffing candidates.
+- **30 assignable operators:** excludes both Administrator variants because reliable infrastructure data is unavailable; operators without matching skills remain valid universal staffing candidates.
 - **Promotion-aware skills:** per-operator E0–E4 selection controls the unlock and upgrade state of up to two infrastructure skills. Both slots remain visible in results, with locked or inactive skills muted.
 - **Per-cabin production targets:** Manufacturing Cabins I and II independently keep Advanced Cognitive Carrier, Advanced Battle Record, or Weapon Inspection Kit fixed; Growth Chamber I keeps mineral, vitrified-plant, or fungal material fixed.
 - **Unique cross-facility allocation:** solves the Control Nexus, Reception Room, Manufacturing Cabins I and II, and Growth Chamber I together so an operator is never double-booked at the same time.

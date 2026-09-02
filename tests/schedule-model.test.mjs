@@ -30,13 +30,17 @@ test("skill display order keeps output effects before mood effects", () => {
   assert.deepEqual(ordered.map((item) => item.name), ["output", "recovery", "mood"]);
 });
 
-test("roster remains 29 unique two-skill operators and Avywenna targets clue 2", () => {
-  assert.equal(OPERATORS.length, 29);
-  assert.equal(new Set(OPERATORS.map((item) => item.id)).size, 29);
+test("roster remains 30 unique two-skill operators with verified clue and growth data", () => {
+  assert.equal(OPERATORS.length, 30);
+  assert.equal(new Set(OPERATORS.map((item) => item.id)).size, 30);
   assert.ok(OPERATORS.every((item) => item.skills.length === 2));
   const avywenna = OPERATORS.find((item) => item.id === "avywenna");
   assert.equal(avywenna.skills[1].category, "clue-special");
   assert.equal(avywenna.skills[1].clue, 2);
+  const typhoeus = OPERATORS.find((item) => item.id === "typhoeus");
+  assert.deepEqual(typhoeus.skills.map((item) => item.category), ["rare-mineral", "fungal"]);
+  assert.deepEqual(typhoeus.skills[0].tiers.map((item) => [item.promotion, item.value]), [[1, 20], [3, 30]]);
+  assert.deepEqual(typhoeus.skills[1].tiers.map((item) => [item.promotion, item.value]), [[2, 20], [4, 30]]);
 });
 
 test("AFK startup solver returns a normalized half-hour axis", () => {

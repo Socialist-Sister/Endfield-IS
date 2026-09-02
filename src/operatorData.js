@@ -30,6 +30,10 @@ const operator = (id, name, rarity, skills) => ({
 export const FACILITIES = ["总控中枢", "会客室", "制造舱", "培养舱"];
 
 export const OPERATORS = [
+  operator("typhoeus", "提弗洛斯", 6, [
+    percentSkill("晶石低语", "培养舱", "rare-mineral", "矿物质料培养", 20, 30),
+    percentSkill("孢子生灵", "培养舱", "fungal", "菌类质料培养", 20, 30, 2),
+  ]),
   operator("arcane", "诀", 6, [
     percentSkill("摘山煮海", "培养舱", "rare-mineral", "矿物质料培养", 20, 30),
     percentSkill("多识草木", "培养舱", "vitrified", "晶植质料培养", 20, 30, 2),
