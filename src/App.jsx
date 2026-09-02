@@ -273,27 +273,35 @@ export function App() {
     const rows = RESULT_ROOM_META.flatMap((room) => {
       const roomOperators = assignments[room.id] ?? [];
       const roomSummary = dailySummary.rooms[room.id];
-      const memberDetail = (operator, team) => getAssignmentSkills(
-        operator,
-        room,
-        resultManufacturingRecipes,
-        resultGrowthCategory,
-        team,
-      ).filter((skill) => skill.applies).map((skill) => skill.activeTier?.description).join("；") || "通用进驻";
+      const memberData = (operator, team) => ({
+        name: operator.name,
+        avatar: operator.avatar,
+        skills: getAssignmentSkills(
+          operator,
+          room,
+          resultManufacturingRecipes,
+          resultGrowthCategory,
+          team,
+        ).map((skill) => ({
+          facility: skill.facility,
+          description: skill.activeTier?.description ?? skill.reason,
+          active: skill.applies,
+        })),
+      });
       const stat = room.id === "control"
         ? `恢复 ${dailySummary.moodRecovery.toFixed(1)}% / 小时`
         : `产效 ${(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 ${(roomSummary.coverageRate * 100).toFixed(0)}%`;
       const groups = resultMode === "afk"
         ? roomOperators.map((operator, operatorIndex) => ({
           offset: dailySummary.startup.offsetsByRoom[room.id]?.[operatorIndex] ?? 0,
-          members: [{ name: operator.name, detail: memberDetail(operator, roomOperators) }],
+          members: [memberData(operator, roomOperators)],
         })).sort((left, right) => left.offset - right.offset).map((group) => ({
           label: `T ${formatStartOffsetLabel(group.offset)}`,
           members: group.members,
         }))
         : (shiftAssignments[room.id] ?? []).map((team, shiftIndex) => ({
           label: `班次 ${String(shiftIndex + 1).padStart(2, "0")} · ${resultLoginTimes[shiftIndex]}`,
-          members: team.map((operator) => ({ name: operator.name, detail: memberDetail(operator, team) })),
+          members: team.map((operator) => memberData(operator, team)),
         }));
       const chunks = [];
       for (let index = 0; index < groups.length || index === 0; index += 4) chunks.push(groups.slice(index, index + 4));

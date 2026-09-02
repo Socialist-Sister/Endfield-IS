@@ -61,7 +61,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
 
-The previews above show the current `v0.1.2` interface.
+The previews above show the current `v0.1.3` interface.
 
 ---
 

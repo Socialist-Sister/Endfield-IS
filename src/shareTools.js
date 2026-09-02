@@ -93,151 +93,370 @@ function drawText(context, value, x, y, maxWidth) {
   context.fillText(fitText(context, value, maxWidth), x, y);
 }
 
+const EXPORT_COLORS = {
+  ink: "#111313",
+  paper: "#f4f5f3",
+  fog: "#dfe1de",
+  panel: "#eceeeb",
+  lane: "#d8dbd8",
+  yellow: "#ffef3a",
+  yellowDark: "#b5aa00",
+  muted: "#666b68",
+  quiet: "#aeb2b0",
+  rule: "#8c918e",
+};
+
 function drawMetric(context, metric, x, y, width, height) {
-  context.fillStyle = "#eceeeb";
+  context.fillStyle = EXPORT_COLORS.panel;
   context.fillRect(x, y, width, height);
-  context.fillStyle = "#ffef3a";
-  context.fillRect(x, y, width, 8);
+  context.fillStyle = EXPORT_COLORS.yellow;
+  context.fillRect(x, y, width, 7);
   context.fillStyle = "#555a57";
-  context.font = '700 18px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
-  drawText(context, metric.label, x + 22, y + 28, width - 44);
-  context.fillStyle = "#111313";
+  context.font = '700 17px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  drawText(context, metric.label, x + 20, y + 25, width - 40);
+  context.fillStyle = EXPORT_COLORS.ink;
   context.font = '800 48px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-  drawText(context, metric.value, x + 22, y + 64, width - 90);
-  context.fillStyle = "#666b68";
-  context.font = '700 15px "Microsoft YaHei UI", sans-serif';
-  context.fillText("日均", x + width - 58, y + 91);
+  drawText(context, metric.value, x + 20, y + 59, width - 92);
+  const valueWidth = Math.min(context.measureText(metric.value).width, width - 112);
+  context.fillStyle = EXPORT_COLORS.muted;
+  context.fillRect(x + 31 + valueWidth, y + 67, 1, 31);
+  context.font = '800 13px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+  context.fillText("日均", x + 43 + valueWidth, y + 77);
+  context.fillStyle = "#6d726f";
+  context.font = '500 13px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  drawText(context, metric.note, x + 20, y + height - 29, width - 40);
 }
 
-function drawFacilityRow(context, row, x, y, width, height) {
-  const labelWidth = 278;
-  context.fillStyle = "#111313";
+function loadImage(source) {
+  return new Promise((resolve) => {
+    if (!source) {
+      resolve(null);
+      return;
+    }
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = new URL(source, window.location.href).href;
+  });
+}
+
+async function loadMemberImages(rows) {
+  const sources = [...new Set(rows.flatMap((row) => (
+    row.groups?.flatMap((group) => group.members?.map((member) => member.avatar).filter(Boolean) ?? []) ?? []
+  )))];
+  const images = await Promise.all(sources.map(async (source) => [source, await loadImage(source)]));
+  return new Map(images);
+}
+
+function drawPortrait(context, member, image, x, y, size) {
+  context.fillStyle = "#c8cbc8";
+  context.fillRect(x, y, size, size);
+  if (image) {
+    context.drawImage(image, x, y, size, size);
+  } else {
+    context.fillStyle = EXPORT_COLORS.ink;
+    context.font = `800 ${Math.round(size * .42)}px "Microsoft YaHei UI", sans-serif`;
+    context.textAlign = "center";
+    context.fillText(member.name?.slice(0, 1) || "·", x + (size / 2), y + (size * .24));
+    context.textAlign = "left";
+  }
+  context.strokeStyle = "#777c79";
+  context.lineWidth = 1;
+  context.strokeRect(x + .5, y + .5, size - 1, size - 1);
+}
+
+function drawSkillRows(context, member, x, y, width, compact = false) {
+  const skills = member.skills?.slice(0, 2) ?? [];
+  const lineHeight = compact ? 19 : 21;
+  const facilityWidth = compact ? 53 : 58;
+  if (!skills.length) {
+    context.fillStyle = EXPORT_COLORS.muted;
+    context.font = '500 12px "Microsoft YaHei UI", sans-serif';
+    context.fillText("通用进驻", x, y);
+    return;
+  }
+  skills.forEach((skill, index) => {
+    const lineY = y + (index * lineHeight);
+    const activeColor = skill.active ? "#424744" : "#a4a8a5";
+    context.fillStyle = activeColor;
+    context.font = `500 ${compact ? 11 : 12}px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif`;
+    drawText(context, skill.facility, x, lineY, facilityWidth - 5);
+    drawText(context, skill.description, x + facilityWidth, lineY, width - facilityWidth);
+  });
+}
+
+function drawMemberCard(context, member, x, y, width, height, image, compact = false) {
+  context.fillStyle = EXPORT_COLORS.paper;
+  context.fillRect(x, y, width, height);
+  context.strokeStyle = EXPORT_COLORS.rule;
+  context.lineWidth = 1;
+  context.strokeRect(x + .5, y + .5, width - 1, height - 1);
+  const portraitSize = compact ? 34 : 46;
+  const inset = compact ? 10 : 12;
+  drawPortrait(context, member, image, x + inset, y + inset, portraitSize);
+  const textX = x + inset + portraitSize + (compact ? 10 : 12);
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.font = `800 ${compact ? 13 : 16}px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif`;
+  drawText(context, member.name, textX, y + inset - 1, width - (textX - x) - inset);
+  drawSkillRows(
+    context,
+    member,
+    textX,
+    y + inset + (compact ? 23 : 29),
+    width - (textX - x) - inset,
+    compact,
+  );
+}
+
+function facilityRowHeight(mode, row) {
+  if (mode === "afk") return 174;
+  const maxMembers = Math.max(1, ...((row.groups ?? []).map((group) => group.members?.length ?? 0)));
+  return 72 + (maxMembers * 88);
+}
+
+function drawFacilityRow(context, row, x, y, width, height, mode, images) {
+  const labelWidth = 244;
+  context.fillStyle = EXPORT_COLORS.ink;
   context.fillRect(x, y, labelWidth, height);
-  context.fillStyle = "#ffef3a";
+  context.fillStyle = EXPORT_COLORS.yellow;
   context.fillRect(x, y, 8, height);
   context.fillStyle = "#ffffff";
-  context.font = '800 25px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
-  drawText(context, row.name, x + 28, y + 27, labelWidth - 48);
-  context.fillStyle = "#aeb2b0";
-  context.font = '500 15px "Microsoft YaHei UI", sans-serif';
-  drawText(context, row.meta, x + 28, y + 68, labelWidth - 48);
+  context.font = '800 23px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  drawText(context, row.name, x + 27, y + 24, labelWidth - 48);
+  context.fillStyle = "#c2c6c3";
+  context.font = '500 14px "Microsoft YaHei UI", sans-serif';
+  drawText(context, row.meta, x + 27, y + 61, labelWidth - 48);
   if (row.stat) {
-    context.fillStyle = "#ffef3a";
-    context.font = '700 14px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-    drawText(context, row.stat, x + 28, y + 104, labelWidth - 48);
+    context.fillStyle = EXPORT_COLORS.quiet;
+    context.font = '700 12px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+    drawText(context, row.stat, x + 27, y + 94, labelWidth - 48);
   }
 
   const contentX = x + labelWidth + 1;
   const contentWidth = width - labelWidth - 1;
-  context.fillStyle = "#f4f5f3";
+  context.fillStyle = EXPORT_COLORS.lane;
   context.fillRect(contentX, y, contentWidth, height);
   const groups = row.groups?.length ? row.groups : [{ label: "—", members: [] }];
-  const groupWidth = contentWidth / groups.length;
+  const padding = mode === "afk" ? 14 : 0;
+  const gap = mode === "afk" ? 10 : 1;
+  const groupWidth = (contentWidth - (padding * 2) - (gap * Math.max(0, groups.length - 1))) / groups.length;
   groups.forEach((group, groupIndex) => {
-    const groupX = contentX + (groupIndex * groupWidth);
-    if (groupIndex) {
-      context.fillStyle = "#b8bcba";
-      context.fillRect(groupX, y + 16, 1, height - 32);
-    }
-    context.fillStyle = "#111313";
-    context.font = '800 16px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-    drawText(context, group.label, groupX + 18, y + 20, groupWidth - 36);
-    if (!group.members?.length) {
-      context.fillStyle = "#858a87";
-      context.font = '500 15px "Microsoft YaHei UI", sans-serif';
-      context.fillText("空位", groupX + 18, y + 57);
+    const groupX = contentX + padding + (groupIndex * (groupWidth + gap));
+    if (mode === "afk") {
+      context.fillStyle = EXPORT_COLORS.ink;
+      context.fillRect(groupX, y + 14, groupWidth, 29);
+      context.fillStyle = EXPORT_COLORS.yellowDark;
+      context.fillRect(groupX, y + 14, 5, 29);
+      context.fillStyle = "#7d827f";
+      context.font = '700 11px Bahnschrift, sans-serif';
+      context.fillText("T", groupX + 13, y + 22);
+      context.fillStyle = EXPORT_COLORS.yellow;
+      context.font = '800 13px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+      drawText(context, group.label.replace(/^T\s*/u, ""), groupX + 30, y + 20, groupWidth - 42);
+      const member = group.members?.[0];
+      if (member) {
+        drawMemberCard(context, member, groupX, y + 43, groupWidth, height - 57, images.get(member.avatar), false);
+      } else {
+        context.fillStyle = EXPORT_COLORS.paper;
+        context.fillRect(groupX, y + 43, groupWidth, height - 57);
+        context.fillStyle = EXPORT_COLORS.muted;
+        context.font = '500 13px "Microsoft YaHei UI", sans-serif';
+        context.fillText("当前干员数量不足", groupX + 15, y + 72);
+      }
       return;
     }
-    group.members.slice(0, 3).forEach((member, memberIndex) => {
-      const memberY = y + 55 + (memberIndex * 29);
-      context.fillStyle = "#a99f00";
-      context.fillRect(groupX + 18, memberY + 4, 7, 7);
-      context.fillStyle = "#111313";
-      context.font = '700 16px "Microsoft YaHei UI", sans-serif';
-      drawText(context, member.name, groupX + 35, memberY, Math.min(130, groupWidth * .35));
-      context.fillStyle = "#666b68";
+
+    context.fillStyle = "#c9ccc9";
+    context.fillRect(groupX, y, groupWidth, 48);
+    context.fillStyle = EXPORT_COLORS.muted;
+    context.font = '700 12px "Microsoft YaHei UI", sans-serif';
+    drawText(context, group.label, groupX + 13, y + 17, groupWidth - 26);
+    const members = group.members ?? [];
+    if (!members.length) {
+      context.fillStyle = EXPORT_COLORS.muted;
       context.font = '500 13px "Microsoft YaHei UI", sans-serif';
-      drawText(context, member.detail || "通用进驻", groupX + Math.min(175, groupWidth * .42), memberY + 2, Math.max(80, groupWidth - Math.min(195, groupWidth * .42)));
+      context.fillText("本班保留空位", groupX + 12, y + 66);
+      return;
+    }
+    members.forEach((member, memberIndex) => {
+      drawMemberCard(
+        context,
+        member,
+        groupX + 9,
+        y + 57 + (memberIndex * 88),
+        groupWidth - 18,
+        79,
+        images.get(member.avatar),
+        true,
+      );
     });
   });
 }
 
-export async function downloadResultCard({ mode, summary, growthLabel, rows }) {
+export async function downloadResultCard({ mode, summary, growthLabel, rows, download = true }) {
   const width = 1600;
-  const rowHeight = 148;
-  const height = 430 + (rows.length * rowHeight) + 94;
+  const margin = 64;
+  const headerY = 40;
+  const headerHeight = 136;
+  const metricsY = 202;
+  const metricHeight = 150;
+  const operationsY = metricsY + metricHeight;
+  const operationHeight = 86;
+  const sectionY = operationsY + operationHeight + 34;
+  const sectionHeight = 60;
+  const rowsY = sectionY + sectionHeight + 16;
+  const rowHeights = rows.map((row) => facilityRowHeight(mode, row));
+  const rowsHeight = rowHeights.reduce((total, value) => total + value, 0);
+  const footerY = rowsY + rowsHeight + 34;
+  const height = footerY + 76;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d");
+  if (!context) throw new Error("无法初始化排班图");
+  await document.fonts?.ready;
+  const images = await loadMemberImages(rows);
   context.textBaseline = "top";
-  context.fillStyle = "#dfe1de";
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.fillStyle = EXPORT_COLORS.fog;
   context.fillRect(0, 0, width, height);
-  context.fillStyle = "#ffef3a";
-  context.fillRect(0, 0, width, 14);
-  context.fillStyle = "#111313";
-  context.fillRect(0, 14, width, 142);
-  context.fillStyle = "#ffef3a";
-  context.font = '800 18px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-  context.fillText("// DIJIANG / SHIFT CALCULATOR", 72, 48);
+
+  const contentWidth = width - (margin * 2);
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.fillRect(margin, headerY, contentWidth, headerHeight);
+  context.fillStyle = EXPORT_COLORS.yellow;
+  context.fillRect(margin, headerY, 10, headerHeight);
+  context.fillRect(margin, headerY + headerHeight - 7, contentWidth, 7);
+  const markX = margin + 30;
+  const markY = headerY + 28;
+  const markSize = 74;
+  context.fillRect(markX, markY, markSize, markSize);
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.fillRect(markX + 20, markY + 12, 34, 45);
+  context.fillStyle = EXPORT_COLORS.yellow;
+  context.fillRect(markX + 26, markY + 18, 22, 10);
+  [[27, 36], [37, 36], [47, 36], [27, 46], [37, 46], [47, 46]].forEach(([dotX, dotY]) => {
+    context.fillRect(markX + dotX, markY + dotY, 4, 4);
+  });
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.font = '900 11px Bahnschrift, sans-serif';
+  context.textAlign = "center";
+  context.fillText("IS", markX + (markSize / 2), markY + 61);
+  context.textAlign = "left";
+
+  const titleX = markX + markSize + 27;
+  context.fillStyle = EXPORT_COLORS.yellow;
+  context.font = '800 14px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+  context.fillText("// DIJIANG / SHIFT SCHEDULE", titleX, headerY + 25);
   context.fillStyle = "#ffffff";
-  context.font = '800 46px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
-  context.fillText("帝江排班计算结果", 72, 83);
-  context.fillStyle = "#aeb2b0";
-  context.font = '500 17px "Microsoft YaHei UI", sans-serif';
-  context.fillText(mode === "afk" ? "长期挂机推荐" : "固定上线倒班推荐", width - 240, 94);
+  context.font = '900 39px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  context.fillText("帝江排班方案", titleX, headerY + 51);
+  context.fillStyle = EXPORT_COLORS.quiet;
+  context.font = '600 13px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+  context.fillText("ENDFIELD INDUSTRIES · INFRASTRUCTURE SCHEDULE", titleX, headerY + 101);
+
+  const metaWidth = 310;
+  const metaX = margin + contentWidth - metaWidth;
+  context.fillStyle = "#3f4341";
+  context.fillRect(metaX, headerY + 22, 1, headerHeight - 51);
+  context.fillStyle = "#858a87";
+  context.font = '700 11px Bahnschrift, sans-serif';
+  context.fillText("SCHEDULE EXPORT", metaX + 24, headerY + 25);
+  context.fillStyle = EXPORT_COLORS.yellow;
+  context.font = '800 18px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  context.fillText(mode === "afk" ? "长期挂机方案" : "固定上线倒班方案", metaX + 24, headerY + 50);
+  const now = new Date();
+  const exportDate = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((part, index) => index ? String(part).padStart(2, "0") : String(part))
+    .join(".");
+  context.fillStyle = EXPORT_COLORS.quiet;
+  context.font = '700 14px Bahnschrift, sans-serif';
+  context.fillText(exportDate, metaX + 24, headerY + 84);
 
   const metrics = [
-    { label: "高级认知载体", value: summary.cognitive.toFixed(1) },
-    { label: "高级作战记录", value: summary.operator.toFixed(1) },
-    { label: "武器检查套组", value: summary.weapon.toFixed(1) },
-    { label: `${growthLabel}培养`, value: summary.growth.toFixed(2) },
-    { label: "预计线索搜集", value: summary.clues.toFixed(2) },
+    { label: "高级认知载体", value: summary.cognitive.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
+    { label: "高级作战记录", value: summary.operator.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
+    { label: "武器检查套组", value: summary.weapon.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
+    { label: `${growthLabel}培养`, value: summary.growth.toFixed(2), note: "培养舱 · 最高等级 · 9 个培养箱" },
+    { label: "预计线索搜集", value: summary.clues.toFixed(2), note: "会客室 · 72 小时基础周期" },
   ];
-  const margin = 72;
-  const metricGap = 2;
+  const metricGap = 1;
   const metricWidth = (width - (margin * 2) - (metricGap * 4)) / 5;
-  metrics.forEach((metric, index) => drawMetric(context, metric, margin + (index * (metricWidth + metricGap)), 184, metricWidth, 142));
+  metrics.forEach((metric, index) => drawMetric(context, metric, margin + (index * (metricWidth + metricGap)), metricsY, metricWidth, metricHeight));
 
-  context.fillStyle = "#111313";
-  context.fillRect(margin, 328, width - (margin * 2), 74);
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.fillRect(margin, operationsY, contentWidth, operationHeight);
   const operational = [
-    ["平均产效", `${(summary.averageEfficiency * 100).toFixed(0)}%`],
-    ["平均在岗", `${summary.averageActive.toFixed(2)} / 3`],
-    ["设施覆盖", `${(summary.averageCoverage * 100).toFixed(1)}%`],
-    ["平均停产", `${summary.averageDowntime.toFixed(2)}h`],
+    ["平均产效", `${(summary.averageEfficiency * 100).toFixed(0)}%`, "40% 进驻 × 技能乘算"],
+    ["平均在岗", `${summary.averageActive.toFixed(2)} / 3`, "生产设施长期均值"],
+    ["设施覆盖", `${(summary.averageCoverage * 100).toFixed(1)}%`, "至少一人在岗的时间"],
+    ["平均停产", `${summary.averageDowntime.toFixed(2)}h`, "每设施每日"],
   ];
-  operational.forEach(([label, value], index) => {
-    const itemWidth = (width - (margin * 2)) / 4;
+  operational.forEach(([label, value, note], index) => {
+    const itemWidth = contentWidth / 4;
     const itemX = margin + (index * itemWidth);
     if (index) {
       context.fillStyle = "#3f4341";
-      context.fillRect(itemX, 344, 1, 42);
+      context.fillRect(itemX, operationsY + 14, 1, operationHeight - 28);
     }
-    context.fillStyle = "#aeb2b0";
-    context.font = '500 15px "Microsoft YaHei UI", sans-serif';
-    context.fillText(label, itemX + 22, 345);
-    context.fillStyle = "#ffef3a";
-    context.font = '800 24px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-    context.fillText(value, itemX + 22, 367);
+    context.fillStyle = EXPORT_COLORS.quiet;
+    context.font = '500 14px "Microsoft YaHei UI", sans-serif';
+    context.fillText(label, itemX + 20, operationsY + 17);
+    context.fillStyle = EXPORT_COLORS.yellow;
+    context.font = '800 23px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+    context.textAlign = "right";
+    context.fillText(value, itemX + itemWidth - 20, operationsY + 15);
+    context.textAlign = "left";
+    context.fillStyle = "#858a87";
+    context.font = '500 12px "Microsoft YaHei UI", sans-serif';
+    drawText(context, note, itemX + 20, operationsY + 54, itemWidth - 40);
   });
 
-  rows.forEach((row, index) => drawFacilityRow(context, row, margin, 430 + (index * rowHeight), width - (margin * 2), rowHeight - 2));
-  const footerY = 430 + (rows.length * rowHeight) + 28;
-  context.fillStyle = "#111313";
-  context.font = '800 16px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-  context.fillText("ENDFIELD-IS", margin, footerY);
-  context.fillStyle = "#666b68";
-  context.font = '500 14px Bahnschrift, "Microsoft YaHei UI", sans-serif';
-  context.fillText(CANONICAL_URL.replace(/\/$/u, ""), width - 345, footerY);
+  context.fillStyle = "#d2d5d2";
+  context.fillRect(margin, sectionY, contentWidth, sectionHeight);
+  context.fillStyle = EXPORT_COLORS.yellowDark;
+  context.fillRect(margin, sectionY, 7, sectionHeight);
+  context.fillStyle = "#626764";
+  context.font = '700 11px Bahnschrift, sans-serif';
+  context.fillText("ASSIGNMENT PLAN", margin + 22, sectionY + 11);
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.font = '800 18px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  context.fillText(mode === "afk" ? "算法推荐启动轴" : "按上线节点进行整组换班", margin + 22, sectionY + 30);
+
+  let rowY = rowsY;
+  rows.forEach((row, index) => {
+    drawFacilityRow(context, row, margin, rowY, contentWidth, rowHeights[index], mode, images);
+    context.fillStyle = "#5f6461";
+    context.fillRect(margin, rowY + rowHeights[index] - 1, contentWidth, 1);
+    rowY += rowHeights[index];
+  });
+  context.strokeStyle = EXPORT_COLORS.ink;
+  context.lineWidth = 1;
+  context.strokeRect(margin + .5, rowsY + .5, contentWidth - 1, rowsHeight - 1);
+
+  context.fillStyle = EXPORT_COLORS.ink;
+  context.fillRect(margin, footerY, contentWidth, 52);
+  context.fillStyle = "#ffffff";
+  context.font = '800 15px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+  context.fillText("ENDFIELD-IS", margin + 20, footerY + 18);
+  context.fillStyle = "#858a87";
+  context.font = '500 13px Bahnschrift, "Microsoft YaHei UI", sans-serif';
+  context.textAlign = "right";
+  context.fillText(CANONICAL_URL.replace(/\/$/u, ""), margin + contentWidth - 20, footerY + 19);
+  context.textAlign = "left";
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) throw new Error("无法生成排班图");
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  anchor.href = objectUrl;
-  anchor.download = `endfield-is-${mode}-${date}.png`;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  if (download) {
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+    anchor.href = objectUrl;
+    anchor.download = `endfield-is-${mode}-${date}.png`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
+  return blob;
 }
