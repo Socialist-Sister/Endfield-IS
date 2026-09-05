@@ -14,3 +14,6 @@ deployment-preview.png
 # Tencent Cloud EdgeOne
 .edgeone/*
 .tef_dist/*
+
+# Local review evidence and benchmark output
+.audit/

@@ -1,3 +1,4 @@
+import { layoutFacilityRow } from "./resultCardLayout.js";
 // Sharing stays client-only: configuration lives in the URL hash and result cards are drawn locally.
 export const CANONICAL_URL = "https://www.endfieldis.dpdns.org/";
 const SHARE_VERSION = 1;
@@ -39,7 +40,7 @@ export function decodeSharedConfiguration(value) {
     const encoded = value.startsWith("#")
       ? new URLSearchParams(value.slice(1)).get("config")
       : value;
-    if (!encoded) return null;
+    if (!encoded || encoded.length > 65536) return null;
     const payload = JSON.parse(decodeBase64Url(encoded));
     if (payload.v !== SHARE_VERSION || !Array.isArray(payload.o)) return null;
     return {
@@ -66,19 +67,28 @@ export function buildConfigurationShareUrl(configuration, baseUrl = CANONICAL_UR
 }
 
 export async function copyText(value) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+  } catch {
+    // Some browsers deny the Clipboard API but still allow a user-initiated copy.
   }
+  const previousFocus = document.activeElement;
   const input = document.createElement("textarea");
   input.value = value;
   input.setAttribute("readonly", "");
   input.style.position = "fixed";
   input.style.opacity = "0";
   document.body.append(input);
-  input.select();
-  document.execCommand("copy");
-  input.remove();
+  try {
+    input.select();
+    if (!document.execCommand("copy")) throw new Error("浏览器未允许复制");
+  } finally {
+    input.remove();
+    previousFocus?.focus({ preventScroll: true });
+  }
 }
 
 function fitText(context, value, maxWidth) {
@@ -135,8 +145,10 @@ function loadImage(source) {
     }
     const image = new Image();
     image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
+    const timer = window.setTimeout(() => finish(null), 8000);
+    const finish = (value) => { window.clearTimeout(timer); image.onload = null; image.onerror = null; resolve(value); };
+    image.onload = () => finish(image);
+    image.onerror = () => finish(null);
     image.src = new URL(source, window.location.href).href;
   });
 }
@@ -166,10 +178,10 @@ function drawPortrait(context, member, image, x, y, size) {
   context.strokeRect(x + .5, y + .5, size - 1, size - 1);
 }
 
-function drawSkillRows(context, member, x, y, width, compact = false) {
+function drawSkillRows(context, member, x, y, width, compact = false, skillLines = []) {
   const skills = member.skills?.slice(0, 2) ?? [];
-  const lineHeight = compact ? 19 : 21;
-  const facilityWidth = compact ? 53 : 58;
+  const facilityWidth = 58;
+  let lineY = y;
   if (!skills.length) {
     context.fillStyle = EXPORT_COLORS.muted;
     context.font = '500 12px "Microsoft YaHei UI", sans-serif';
@@ -177,16 +189,17 @@ function drawSkillRows(context, member, x, y, width, compact = false) {
     return;
   }
   skills.forEach((skill, index) => {
-    const lineY = y + (index * lineHeight);
-    const activeColor = skill.active ? "#424744" : "#a4a8a5";
+    const activeColor = skill.active ? "#424744" : "#747976";
     context.fillStyle = activeColor;
-    context.font = `500 ${compact ? 11 : 12}px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif`;
+    context.font = '500 12px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
     drawText(context, skill.facility, x, lineY, facilityWidth - 5);
-    drawText(context, skill.description, x + facilityWidth, lineY, width - facilityWidth);
+    const lines = skillLines[index] ?? [skill.description];
+    lines.forEach((line, lineIndex) => context.fillText(line, x + facilityWidth, lineY + lineIndex * 18));
+    lineY += lines.length * 18 + 4;
   });
 }
 
-function drawMemberCard(context, member, x, y, width, height, image, compact = false) {
+function drawMemberCard(context, member, x, y, width, height, image, compact = false, skillLines = []) {
   context.fillStyle = EXPORT_COLORS.paper;
   context.fillRect(x, y, width, height);
   context.strokeStyle = EXPORT_COLORS.rule;
@@ -206,16 +219,11 @@ function drawMemberCard(context, member, x, y, width, height, image, compact = f
     y + inset + (compact ? 23 : 29),
     width - (textX - x) - inset,
     compact,
+    skillLines,
   );
 }
 
-function facilityRowHeight(mode, row) {
-  if (mode === "afk") return 174;
-  const maxMembers = Math.max(1, ...((row.groups ?? []).map((group) => group.members?.length ?? 0)));
-  return 72 + (maxMembers * 88);
-}
-
-function drawFacilityRow(context, row, x, y, width, height, mode, images) {
+function drawFacilityRow(context, row, x, y, width, height, mode, images, layout) {
   const labelWidth = 244;
   context.fillStyle = EXPORT_COLORS.ink;
   context.fillRect(x, y, labelWidth, height);
@@ -238,11 +246,10 @@ function drawFacilityRow(context, row, x, y, width, height, mode, images) {
   context.fillStyle = EXPORT_COLORS.lane;
   context.fillRect(contentX, y, contentWidth, height);
   const groups = row.groups?.length ? row.groups : [{ label: "—", members: [] }];
-  const padding = mode === "afk" ? 14 : 0;
-  const gap = mode === "afk" ? 10 : 1;
-  const groupWidth = (contentWidth - (padding * 2) - (gap * Math.max(0, groups.length - 1))) / groups.length;
   groups.forEach((group, groupIndex) => {
-    const groupX = contentX + padding + (groupIndex * (groupWidth + gap));
+    const groupLayout = layout.groups[groupIndex];
+    const groupX = x + groupLayout.x;
+    const groupWidth = groupLayout.width;
     if (mode === "afk") {
       context.fillStyle = EXPORT_COLORS.ink;
       context.fillRect(groupX, y + 14, groupWidth, 29);
@@ -256,7 +263,8 @@ function drawFacilityRow(context, row, x, y, width, height, mode, images) {
       drawText(context, group.label.replace(/^T\s*/u, ""), groupX + 30, y + 20, groupWidth - 42);
       const member = group.members?.[0];
       if (member) {
-        drawMemberCard(context, member, groupX, y + 43, groupWidth, height - 57, images.get(member.avatar), false);
+        const card = groupLayout.members[0];
+        drawMemberCard(context, member, x + card.x, y + card.y, card.width, card.height, images.get(member.avatar), false, card.skillLines);
       } else {
         context.fillStyle = EXPORT_COLORS.paper;
         context.fillRect(groupX, y + 43, groupWidth, height - 57);
@@ -280,16 +288,9 @@ function drawFacilityRow(context, row, x, y, width, height, mode, images) {
       return;
     }
     members.forEach((member, memberIndex) => {
-      drawMemberCard(
-        context,
-        member,
-        groupX + 9,
-        y + 57 + (memberIndex * 88),
-        groupWidth - 18,
-        79,
-        images.get(member.avatar),
-        true,
-      );
+      const card = groupLayout.members[memberIndex];
+      drawMemberCard(context, member, x + card.x, y + card.y, card.width, card.height,
+        images.get(member.avatar), true, card.skillLines);
     });
   });
 }
@@ -306,16 +307,19 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   const sectionY = operationsY + operationHeight + 34;
   const sectionHeight = 60;
   const rowsY = sectionY + sectionHeight + 16;
-  const rowHeights = rows.map((row) => facilityRowHeight(mode, row));
+  await document.fonts?.ready;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("无法初始化排班图");
+  context.font = '500 12px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
+  const layouts = rows.map((row) => layoutFacilityRow(mode, row, width - margin * 2, (text) => context.measureText(text).width));
+  const rowHeights = layouts.map((layout) => layout.height);
   const rowsHeight = rowHeights.reduce((total, value) => total + value, 0);
   const footerY = rowsY + rowsHeight + 34;
   const height = footerY + 76;
-  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("无法初始化排班图");
-  await document.fonts?.ready;
+
   const images = await loadMemberImages(rows);
   context.textBaseline = "top";
   context.imageSmoothingEnabled = true;
@@ -379,8 +383,8 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
     { label: "高级认知载体", value: summary.cognitive.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
     { label: "高级作战记录", value: summary.operator.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
     { label: "武器检查套组", value: summary.weapon.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
-    { label: `${growthLabel}培养`, value: summary.growth.toFixed(2), note: "培养舱 · 最高等级 · 9 个培养箱" },
-    { label: "预计线索搜集", value: summary.clues.toFixed(2), note: "会客室 · 72 小时基础周期" },
+    { label: `${growthLabel}培养`, value: summary.growth.toFixed(2), note: "培养舱 · 最高等级 · 9 箱 / 61h06m40s" },
+    { label: "预计线索搜集", value: summary.clues.toFixed(2), note: "会客室 · 按 72 小时基础周期估算" },
   ];
   const metricGap = 1;
   const metricWidth = (width - (margin * 2) - (metricGap * 4)) / 5;
@@ -389,7 +393,7 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   context.fillStyle = EXPORT_COLORS.ink;
   context.fillRect(margin, operationsY, contentWidth, operationHeight);
   const operational = [
-    ["平均产效", `${(summary.averageEfficiency * 100).toFixed(0)}%`, "40% 进驻 × 技能乘算"],
+    ["平均产效", `${(summary.averageEfficiency * 100).toFixed(0)}%`, "生产设施等权平均"],
     ["平均在岗", `${summary.averageActive.toFixed(2)} / 3`, "生产设施长期均值"],
     ["设施覆盖", `${(summary.averageCoverage * 100).toFixed(1)}%`, "至少一人在岗的时间"],
     ["平均停产", `${summary.averageDowntime.toFixed(2)}h`, "每设施每日"],
@@ -427,7 +431,7 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
 
   let rowY = rowsY;
   rows.forEach((row, index) => {
-    drawFacilityRow(context, row, margin, rowY, contentWidth, rowHeights[index], mode, images);
+    drawFacilityRow(context, row, margin, rowY, contentWidth, rowHeights[index], mode, images, layouts[index]);
     context.fillStyle = "#5f6461";
     context.fillRect(margin, rowY + rowHeights[index] - 1, contentWidth, 1);
     rowY += rowHeights[index];
@@ -455,8 +459,10 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
     const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
     anchor.href = objectUrl;
     anchor.download = `endfield-is-${mode}-${date}.png`;
+    document.body.append(anchor);
     anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
   }
   return blob;
 }

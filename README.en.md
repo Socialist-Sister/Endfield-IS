@@ -61,7 +61,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
 
-The previews above show the current `v0.1.3` interface.
+The previews above show the current `v0.2.0` interface.
 
 ---
 
@@ -104,12 +104,14 @@ The user enters daily login times, and each node performs a full-team replacemen
 | Manufacturing / growth / reception efficiency | `(1 + 40% × active operators) × (1 + total matching skills)` |
 | Universal staffing bonus | Operators without matching room skills still provide 40% each |
 | Manufacturing duration | Advanced Cognitive Carrier `24:26:40`; Advanced Battle Record and Weapon Inspection Kit `09:46:40` |
-| Growth target | One of mineral, vitrified-plant, or fungal material stays fixed for the whole simulation |
+| Growth target | One fixed category; 9 boxes at `61:06:40` per box, excluding items with other durations |
+| Base clue period | Estimated using `72 hours`; independent in-game verification remains pending |
+| Unstaffed facilities | Treated as downtime; idle production, batch collection, and manual assistance are excluded |
 | Specific-clue skills | Qualitative L1/L2 tendencies only; identical effects do not stack and no fixed daily clue count is invented |
 
 Each manufacturing cabin keeps its selected recipe fixed. Daily output is aggregated when both cabins choose the same recipe. Outside the Control Nexus, AFK teams never mix morale-consumption-reduction operators with ordinary operators, preventing duty-cycle drift.
 
-> Results are estimates based on the current public dataset and model, not real-time game state. Operator data and calculation rules should be updated when in-game values or mechanics change.
+> Formulas and morale cycles have been cross-checked against independent closed-form solutions; absolute in-game yields are not fully verified. Manufacturing duration/batch interpretation, varying growth-item durations, and the base clue period remain limitations. See the [v0.2.0 calculation audit](docs/reviews/calculation-v0.2.0.md) (Chinese).
 
 ---
 
@@ -126,14 +128,15 @@ Production build and tests:
 
 ```bash
 npm run build
-node --test tests/schedule-model.test.mjs
-node --test tests/share-tools.test.mjs
+npm test
 npm run test:sites
 ```
 
 Browser assets are written to `dist/client`. The build also creates `dist/server/index.js` and `dist/.openai/hosting.json` for Sites-compatible handoff.
 
-Tests cover stable-cycle startup optimization, continuous morale tracking, unique cross-facility assignments, fixed material categories, per-cabin recipes and durations, same-recipe aggregation, and clue estimation.
+Tests cover stable startup cycles, continuous morale, room-specific skills and unique assignments, small rosters, fixed recipes, clipboard failure handling, and wrapped text with dynamic export layouts.
+
+Run `npm run benchmark` to record timing and outputs for the full E4 roster using shared axes, per-facility axes, and fixed shifts. Timing varies by device.
 
 ### Technology
 

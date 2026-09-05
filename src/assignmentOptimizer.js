@@ -114,25 +114,28 @@ function maximizeAssignment(weights) {
 }
 
 function buildMatchingAssignment({ operators, promotions, rooms, manufacturingRecipes, growthCategory, policies = {}, moodWeight, duration = 24, penalties = new Map() }) {
-  const slots = rooms.flatMap((room) => Array.from({ length: 3 }, () => room));
+  const slots = rooms.flatMap((room) => Array.from({ length: 3 }, (_, index) => ({ room, index })));
   const dummyCount = slots.length;
   const columns = [...operators, ...Array.from({ length: dummyCount }, (_, index) => ({ id: `__dummy-${index}`, dummy: true }))];
   const prepared = Object.fromEntries(rooms.map((room) => [room.id, Object.fromEntries(operators.map((operator) => [
     operator.id,
     prepareCandidate(operator, room, promotions[operator.id] ?? 4, manufacturingRecipes, growthCategory),
   ]))]));
-  const weights = slots.map((room) => columns.map((operator) => {
+  const weights = slots.map(({ room, index }) => columns.map((operator) => {
     if (operator.dummy) return 0;
     const candidate = prepared[room.id][operator.id];
     const policy = policies[room.id];
     if (policy === "mood" && !hasMoodReduction(candidate)) return IMPOSSIBLE_WEIGHT;
     if (policy === "plain" && hasMoodReduction(candidate)) return IMPOSSIBLE_WEIGHT;
+    // The first occupied production slot also enables the facility's base 100%.
+    // Without this marginal value, a small E0 roster gets packed into one room.
+    const openingBonus = room.id !== "control" && index === 0 ? 100 : 0;
     return candidateWeight(candidate, room, manufacturingRecipes, growthCategory, moodWeight, duration)
-      - (penalties.get(operator.id) ?? 0);
+      + openingBonus - (penalties.get(operator.id) ?? 0);
   }));
   const chosenColumns = maximizeAssignment(weights);
   const result = Object.fromEntries(rooms.map((room) => [room.id, []]));
-  slots.forEach((room, slotIndex) => {
+  slots.forEach(({ room }, slotIndex) => {
     const operator = columns[chosenColumns[slotIndex]];
     if (!operator || operator.dummy || weights[slotIndex][chosenColumns[slotIndex]] <= 0) return;
     result[room.id].push(prepared[room.id][operator.id]);
@@ -247,8 +250,7 @@ export function optimizeShiftAssignments({ operators, promotions, rooms, manufac
           loginTimes,
           manufacturingRecipes,
           growthCategory,
-          warmupDays: 45,
-          sampleDays: 30,
+          // Use the same evaluation window as the displayed fixed-login result.
         });
         const score = summaryObjective(summary, rooms);
         if (!best || score > best.score + 1e-9) best = { shiftAssignments, score };

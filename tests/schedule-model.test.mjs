@@ -230,7 +230,7 @@ test("manufacturing cabins route independently and use recipe-specific durations
     assignments: {},
     shiftAssignments: {
       "manufacture-a": [dualTeam],
-      "manufacture-b": [dualTeam],
+      "manufacture-b": [dualTeam.map((entry) => ({ ...entry, id: `${entry.id}-b` }))],
       reception: [[]],
       control: [[]],
     },
@@ -244,6 +244,7 @@ test("manufacturing cabins route independently and use recipe-specific durations
     },
   });
   assert.equal(result.operator, 0);
+  assert.ok(result.cognitive > 0 && result.weapon > 0);
   assert.ok(Math.abs(result.cognitive - (
     result.rooms["manufacture-a"].effectiveHoursPerDay / MANUFACTURING_RECIPES["advanced-cognitive-carrier"].hours
   )) < 1e-9);
@@ -278,4 +279,46 @@ test("two cabins selecting the same manufacturing recipe aggregate their output"
   assert.ok(Math.abs(result.operator - (
     totalEffectiveHours / MANUFACTURING_RECIPES["advanced-battle-record"].hours
   )) < 1e-9);
+});
+
+test("a rotating operator uses each room's prepared skills while retaining mood", () => {
+  const rooms = [{ id: "manufacture-a", type: "制造舱" }, { id: "growth", type: "培养舱" }];
+  const workerInManufacturing = operator("rotating", [skill("weapon-exp", 100)]);
+  const workerInGrowth = operator("rotating", [skill("rare-mineral", 50)]);
+  const result = buildDailySummary({
+    mode: "shift", rooms, assignments: {},
+    shiftAssignments: { "manufacture-a": [[workerInManufacturing], [], []], growth: [[], [workerInGrowth], []] },
+    loginTimes: ["00:00", "08:00", "16:00"], manufacturingRecipes: WEAPON_RECIPES, growthCategory: "rare-mineral",
+  });
+  assert.ok(result.rooms.growth.coverageRate > 0);
+  assert.ok(Math.abs(result.rooms.growth.averageFactor / result.rooms.growth.coverageRate - 2.1) < 1e-9);
+  assert.ok(Math.abs(result.rooms["manufacture-a"].averageFactor / result.rooms["manufacture-a"].coverageRate - 2.8) < 1e-9);
+});
+
+test("sorting login clocks keeps assignments attached to their original clock", () => {
+  const rooms = [{ id: "manufacture-a", type: "制造舱" }];
+  const team = [operator("worker", [skill("weapon-exp", 30)])];
+  const options = { mode: "shift", rooms, assignments: {}, manufacturingRecipes: WEAPON_RECIPES };
+  const sorted = buildDailySummary({ ...options, loginTimes: ["00:00", "08:00", "20:00"], shiftAssignments: { "manufacture-a": [team, [], []] } });
+  const unsorted = buildDailySummary({ ...options, loginTimes: ["20:00", "00:00", "08:00"], shiftAssignments: { "manufacture-a": [[], team, []] } });
+  assert.deepEqual(unsorted, sorted);
+});
+
+test("a small E0 roster opens productive rooms instead of packing one cabin", () => {
+  const rooms = [{ id: "manufacture-a", type: "制造舱" }, { id: "manufacture-b", type: "制造舱" }, { id: "growth", type: "培养舱" }, { id: "reception", type: "会客室" }, { id: "control", type: "总控中枢" }];
+  const operators = OPERATORS.slice(0, 3);
+  const promotions = Object.fromEntries(operators.map((entry) => [entry.id, 0]));
+  const options = { rooms, operators, promotions, manufacturingRecipes: DEFAULT_RECIPES, growthCategory: "rare-mineral" };
+  const assignments = optimizeAfkAssignments(options);
+  assert.equal(rooms.filter((room) => room.id !== "control" && assignments[room.id].length).length, 3);
+  const packed = Object.fromEntries(rooms.map((room) => [room.id, room.id === "manufacture-a" ? operators.map((entry) => prepareCandidate(entry, room, 0, DEFAULT_RECIPES, "rare-mineral")) : []]));
+  const evaluate = (teams) => evaluateStartupOffsets({ ...options, assignments: teams, offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, [0, 0, 0]])) }).averageEfficiency;
+  assert.ok(evaluate(assignments) > evaluate(packed) * 1.5);
+});
+
+test("an empty login schedule produces finite zero outputs", () => {
+  const result = buildDailySummary({ mode: "shift", rooms: [{ id: "growth", type: "培养舱" }], assignments: {}, shiftAssignments: { growth: [] }, loginTimes: [], growthCategory: "rare-mineral" });
+  assert.equal(result.growth, 0);
+  assert.equal(result.averageCoverage, 0);
+  assert.equal(result.moodRecovery, 12);
 });

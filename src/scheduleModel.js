@@ -40,7 +40,6 @@ export const AXIS_SCOPES = {
   },
 };
 
-const PRODUCT_CATEGORIES = ["weapon-exp", "operator-exp", "rare-mineral", "vitrified", "fungal", "clue-rate"];
 const REFERENCE_AXES = [[0, 5, 10], [0, 0, 8]];
 const FINAL_WARMUP_HOURS = 24 * 180;
 const FINAL_SAMPLE_HOURS = 24 * 90;
@@ -167,12 +166,11 @@ function buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory)
       room,
       category,
       operators: (assignments[room.id] ?? []).map((operator) => {
-        const values = Object.fromEntries(PRODUCT_CATEGORIES.map((skillCategory) => [skillCategory, sumSkillValue([operator], skillCategory)]));
         return {
           operator,
           moodDrop: sumSkillValue([operator], "mood-drop"),
           moodRegen: sumSkillValue([operator], "mood-regen"),
-          values,
+          outputBonus: category ? sumSkillValue([operator], category) : 0,
         };
       }),
     };
@@ -201,7 +199,9 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
   const activeCounts = new Array(roomCount).fill(0);
   const moodDropTotals = new Array(roomCount).fill(0);
   const moodRegenTotals = new Array(roomCount).fill(0);
-  const skillTotals = model.map(() => Object.fromEntries(PRODUCT_CATEGORIES.map((category) => [category, 0])));
+  // Recipes are fixed: accumulate only the matching skill and reuse arrays between events.
+  const skillTotals = new Array(roomCount).fill(0);
+  const drainRates = new Array(roomCount).fill(0);
   const controlIndex = model.findIndex((profile) => profile.room.id === "control");
   let time = 0;
 
@@ -209,7 +209,7 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
     activeCounts.fill(0);
     moodDropTotals.fill(0);
     moodRegenTotals.fill(0);
-    skillTotals.forEach((totals) => PRODUCT_CATEGORIES.forEach((category) => { totals[category] = 0; }));
+    skillTotals.fill(0);
 
     states.forEach((state) => {
       if (!state.started && time + 1e-7 >= state.startAt) {
@@ -224,11 +224,13 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
       activeCounts[roomIndex] += 1;
       moodDropTotals[roomIndex] += profile.moodDrop;
       moodRegenTotals[roomIndex] += profile.moodRegen;
-      PRODUCT_CATEGORIES.forEach((category) => { skillTotals[roomIndex][category] += profile.values[category]; });
+      skillTotals[roomIndex] += profile.outputBonus;
     });
 
     const recoveryRate = BASE_MOOD_RECOVERY_PER_HOUR * (1 + ((controlIndex >= 0 ? moodRegenTotals[controlIndex] : 0) / 100));
-    const drainRates = moodDropTotals.map((total) => BASE_MOOD_DRAIN_PER_HOUR * (1 - Math.min(0.95, total / 100)));
+    for (let index = 0; index < roomCount; index += 1) {
+      drainRates[index] = BASE_MOOD_DRAIN_PER_HOUR * (1 - Math.min(0.95, moodDropTotals[index] / 100));
+    }
     let nextTime = totalHours;
     states.forEach((state) => {
       if (!state.started) {
@@ -251,7 +253,7 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
         const count = activeCounts[roomIndex];
         const category = profile.category;
         const factor = count && category
-          ? (1 + (count * BASE_ASSIGNMENT_BONUS)) * (1 + (skillTotals[roomIndex][category] / 100))
+          ? (1 + (count * BASE_ASSIGNMENT_BONUS)) * (1 + (skillTotals[roomIndex] / 100))
           : 0;
         accumulators[roomIndex].effectiveHours += factor * measuredDuration;
         accumulators[roomIndex].coverageHours += (count ? 1 : 0) * measuredDuration;
@@ -501,10 +503,15 @@ function nextShiftBoundary(time, starts) {
 }
 
 function simulateShiftModel({ rooms, shiftAssignments, loginTimes, manufacturingRecipes, growthCategory, warmupHours, sampleHours }) {
-  const starts = [...loginTimes].sort().map(parseClock);
+  const orderedShifts = loginTimes.map((time, index) => ({ time: parseClock(time), index }))
+    .sort((left, right) => left.time - right.time);
+  const starts = orderedShifts.map((shift) => shift.time);
+  if (!starts.length) {
+    const emptyStats = Object.fromEntries(rooms.map((room) => [room.id, normalizeRoomStats(emptyRoomAccumulator(), 24)]));
+    return summarizeOutputs(rooms, emptyStats, BASE_MOOD_RECOVERY_PER_HOUR, manufacturingRecipes, growthCategory);
+  }
   const totalHours = warmupHours + sampleHours;
   const accumulators = Object.fromEntries(rooms.map((room) => [room.id, emptyRoomAccumulator()]));
-  const roomById = Object.fromEntries(rooms.map((room) => [room.id, room]));
   const operatorById = new Map();
   rooms.forEach((room) => (shiftAssignments[room.id] ?? []).forEach((team) => team.forEach((operator) => {
     if (!operatorById.has(operator.id)) operatorById.set(operator.id, operator);
@@ -522,10 +529,12 @@ function simulateShiftModel({ rooms, shiftAssignments, loginTimes, manufacturing
   const applyShift = (shiftIndex) => {
     states.forEach((state) => { state.assignedRoom = null; state.working = false; });
     rooms.forEach((room) => {
-      const team = shiftAssignments[room.id]?.[shiftIndex] ?? [];
+      const team = shiftAssignments[room.id]?.[orderedShifts[shiftIndex]?.index] ?? [];
       team.forEach((operator) => {
         const state = states.get(operator.id);
         if (!state || state.assignedRoom) return;
+        // Mood belongs to the person; active skills belong to this shift's room.
+        state.operator = operator;
         state.assignedRoom = room.id;
         state.working = state.mood > 1e-7;
       });

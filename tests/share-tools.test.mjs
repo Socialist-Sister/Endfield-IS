@@ -42,3 +42,28 @@ test("rejects malformed or unsupported payloads", () => {
   const unsupported = btoa(JSON.stringify({ v: 99, o: [] }));
   assert.equal(decodeSharedConfiguration(unsupported), null);
 });
+
+test("Clipboard API denial falls back and restores keyboard focus", async (t) => {
+  const { copyText } = await import("../src/shareTools.js");
+  const originals = Object.fromEntries(["navigator", "document"].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  t.after(() => { for (const [key, descriptor] of Object.entries(originals)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } });
+  const calls = [];
+  const input = { style: {}, setAttribute() {}, select() { calls.push("select"); }, remove() { calls.push("remove"); } };
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { clipboard: { writeText: async () => { throw new Error("denied"); } } } });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: {
+    activeElement: { focus() { calls.push("focus"); } },
+    createElement() { return input; }, body: { append() {} },
+    execCommand() { calls.push("copy"); return true; },
+  } });
+  await copyText("configuration");
+  assert.equal(input.value, "configuration");
+  assert.deepEqual(calls, ["select", "copy", "remove", "focus"]);
+  calls.length = 0;
+  document.execCommand = () => false;
+  await assert.rejects(copyText("configuration"), /复制/u);
+  assert.deepEqual(calls, ["select", "remove", "focus"]);
+});
+
+test("oversized sharing payloads are rejected before decoding", () => {
+  assert.equal(decodeSharedConfiguration("a".repeat(65537)), null);
+});
