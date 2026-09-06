@@ -10,6 +10,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 [![Live App](https://img.shields.io/badge/Live%20App-EdgeOne-FFEF3A?style=flat-square&labelColor=171918)](https://www.endfieldis.dpdns.org/)
 [![Vercel](https://img.shields.io/badge/Fallback-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
+[![Release](https://img.shields.io/badge/Release-v0.3.0-202421?style=flat-square)](https://github.com/Socialist-Sister/Endfield-IS/releases/tag/v0.3.0)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
 [![Operators](https://img.shields.io/badge/Operators-30-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
@@ -61,7 +62,7 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 The interface takes the official Endfield website as its primary visual reference, translating its black, fog-white, and signal-yellow language into a responsive utility UI for desktop and narrow screens.
 
-The previews above show the current `v0.2.0` interface.
+These previews show `v0.3.0`: a shared contour background, dark selected-operator cards, animated dropdowns, and the Dijiang wordmark and in-game icon from user-provided assets. The two-step configuration/result workflow is retained. See the [v0.3.0 release notes](docs/releases/v0.3.0.md) (Chinese).
 
 ---
 
@@ -136,7 +137,7 @@ Browser assets are written to `dist/client`. The build also creates `dist/server
 
 Tests cover stable startup cycles, continuous morale, room-specific skills and unique assignments, small rosters, fixed recipes, clipboard failure handling, and wrapped text with dynamic export layouts.
 
-Run `npm run benchmark` to record timing and outputs for the full E4 roster using shared axes, per-facility axes, and fixed shifts. Timing varies by device.
+Run `npm run benchmark` to record timing and outputs for the full E4 roster using shared axes, per-facility axes, and fixed shifts. Timing varies by device. Reusing equivalent AFK axis evaluations reduced default-configuration runtime by about 58%–65% on the tested machine while preserving results; see the [performance review](docs/reviews/performance-2026-09-06.md).
 
 ### Technology
 
@@ -161,6 +162,8 @@ Search and social metadata use the EdgeOne custom domain as the canonical site, 
 ## Data and Assets
 
 Operator portraits are bundled as local static assets so the interface has no runtime dependency on a third-party image service. Portrait mapping was cross-checked against the public [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) metadata.
+
+The background texture comes from the official Endfield website. The Dijiang wordmark and vessel icon use user-provided game assets, preserving their original letterforms and silhouette with cropping and palette adaptation only. See the [brand asset notes](docs/brand/README.md) and [background attribution](public/textures/README.md) (Chinese).
 
 _Arknights: Endfield_, its characters, artwork, and related assets belong to Hypergryph / GRYPHLINE. This unofficial project claims no ownership of game assets.
 

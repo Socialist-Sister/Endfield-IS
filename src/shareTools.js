@@ -132,9 +132,6 @@ function drawMetric(context, metric, x, y, width, height) {
   context.fillRect(x + 31 + valueWidth, y + 67, 1, 31);
   context.font = '800 13px Bahnschrift, "Microsoft YaHei UI", sans-serif';
   context.fillText("日均", x + 43 + valueWidth, y + 77);
-  context.fillStyle = "#6d726f";
-  context.font = '500 13px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
-  drawText(context, metric.note, x + 20, y + height - 29, width - 40);
 }
 
 function loadImage(source) {
@@ -301,7 +298,7 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   const headerY = 40;
   const headerHeight = 136;
   const metricsY = 202;
-  const metricHeight = 150;
+  const metricHeight = 118;
   const operationsY = metricsY + metricHeight;
   const operationHeight = 86;
   const sectionY = operationsY + operationHeight + 34;
@@ -320,7 +317,10 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   canvas.width = width;
   canvas.height = height;
 
-  const images = await loadMemberImages(rows);
+  const [images, brandImage] = await Promise.all([
+    loadMemberImages(rows),
+    loadImage("/dijiang-mark.svg?v=6"),
+  ]);
   context.textBaseline = "top";
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
@@ -336,19 +336,13 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   const markX = margin + 30;
   const markY = headerY + 28;
   const markSize = 74;
-  context.fillRect(markX, markY, markSize, markSize);
-  context.fillStyle = EXPORT_COLORS.ink;
-  context.fillRect(markX + 20, markY + 12, 34, 45);
-  context.fillStyle = EXPORT_COLORS.yellow;
-  context.fillRect(markX + 26, markY + 18, 22, 10);
-  [[27, 36], [37, 36], [47, 36], [27, 46], [37, 46], [47, 46]].forEach(([dotX, dotY]) => {
-    context.fillRect(markX + dotX, markY + dotY, 4, 4);
-  });
-  context.fillStyle = EXPORT_COLORS.ink;
-  context.font = '900 11px Bahnschrift, sans-serif';
-  context.textAlign = "center";
-  context.fillText("IS", markX + (markSize / 2), markY + 61);
-  context.textAlign = "left";
+  if (brandImage) {
+    context.drawImage(brandImage, markX, markY, markSize, markSize);
+  } else {
+    context.fillStyle = EXPORT_COLORS.yellow;
+    context.font = '800 26px "Microsoft YaHei UI", sans-serif';
+    context.fillText("帝江", markX + 10, markY + 23);
+  }
 
   const titleX = markX + markSize + 27;
   context.fillStyle = EXPORT_COLORS.yellow;
@@ -380,11 +374,11 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   context.fillText(exportDate, metaX + 24, headerY + 84);
 
   const metrics = [
-    { label: "高级认知载体", value: summary.cognitive.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
-    { label: "高级作战记录", value: summary.operator.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
-    { label: "武器检查套组", value: summary.weapon.toFixed(1), note: "制造舱 · 最高等级 · 实际在岗折算" },
-    { label: `${growthLabel}培养`, value: summary.growth.toFixed(2), note: "培养舱 · 最高等级 · 9 箱 / 61h06m40s" },
-    { label: "预计线索搜集", value: summary.clues.toFixed(2), note: "会客室 · 按 72 小时基础周期估算" },
+    { label: "高级认知载体", value: summary.cognitive.toFixed(1) },
+    { label: "高级作战记录", value: summary.operator.toFixed(1) },
+    { label: "武器检查套组", value: summary.weapon.toFixed(1) },
+    { label: `${growthLabel}培养`, value: summary.growth.toFixed(2) },
+    { label: "预计线索搜集", value: summary.clues.toFixed(2) },
   ];
   const metricGap = 1;
   const metricWidth = (width - (margin * 2) - (metricGap * 4)) / 5;

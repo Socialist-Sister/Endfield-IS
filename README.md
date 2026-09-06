@@ -10,6 +10,7 @@
 
 [![Live App](https://img.shields.io/badge/Live%20App-EdgeOne-FFEF3A?style=flat-square&labelColor=171918)](https://www.endfieldis.dpdns.org/)
 [![Vercel](https://img.shields.io/badge/Fallback-Vercel-171918?style=flat-square&logo=vercel&logoColor=white)](https://endfield-is.vercel.app/)
+[![Release](https://img.shields.io/badge/Release-v0.3.0-202421?style=flat-square)](https://github.com/Socialist-Sister/Endfield-IS/releases/tag/v0.3.0)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
 [![Operators](https://img.shields.io/badge/Operators-30-F5DD26?style=flat-square&labelColor=171918)](#核心能力)
@@ -61,7 +62,7 @@
 
 界面以终末地官网为主要视觉参考，使用黑、雾白与信号黄构成适合计算工具的信息层级，并适配桌面与窄屏窗口。
 
-以上预览来自 `v0.2.0` 当前界面。
+以上为 `v0.3.0` 实际界面：统一等高线背景、深色已选干员卡、带动效的下拉菜单，以及来自用户提供素材的“帝江”字标和游戏内图标。配置与结果两步操作流程保持一致。详见 [v0.3.0 发布说明](docs/releases/v0.3.0.md)。
 
 ---
 
@@ -136,7 +137,7 @@ npm run test:sites
 
 测试覆盖稳定周期启动轴、连续心情追踪、跨设施技能切换与唯一分配、少干员分配、固定材料类别、逐舱配方、分享复制失败处理，以及导出图的文字换行和动态布局。
 
-使用 `npm run benchmark` 记录全员 E4 的统一轴、分设施轴和固定换班耗时及产出；结果随运行设备变化。
+使用 `npm run benchmark` 记录全员 E4 的统一轴、分设施轴和固定换班耗时及产出；结果随运行设备变化。挂机搜索复用等效启动轴评估，本机默认配置耗时降低约 58%–65%，并保持前后结果一致；详见 [性能复核](docs/reviews/performance-2026-09-06.md)。
 
 ### 技术栈
 
@@ -161,6 +162,8 @@ Vercel 的路由与构建设置见 [`vercel.json`](vercel.json)。
 ## 数据与素材
 
 干员头像以本地静态资源随项目发布，避免运行时依赖第三方图片服务。头像对应关系参考了 [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) 的公开映射。
+
+界面背景纹理来自终末地官网；“帝江”字标与帝江号图标来自用户提供的游戏素材，保留原图字形和轮廓，仅裁切并适配配色。来源及处理方式见 [品牌素材说明](docs/brand/README.md) 和 [背景素材说明](public/textures/README.md)。
 
 《明日方舟：终末地》及其角色、美术与相关素材版权归 Hypergryph / GRYPHLINE 所有。本项目为非官方工具，不主张对相关游戏素材拥有权利。
 

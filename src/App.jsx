@@ -4,7 +4,7 @@ import { ArrowRight } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { Calculator } from "@phosphor-icons/react/dist/csr/Calculator";
-import { CaretDown } from "@phosphor-icons/react/dist/csr/CaretDown";
+import SelectField from "./SelectField.jsx";
 import { ChartLineUp } from "@phosphor-icons/react/dist/csr/ChartLineUp";
 import { Check } from "@phosphor-icons/react/dist/csr/Check";
 import { ClockCounterClockwise } from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
@@ -157,8 +157,8 @@ function formatStartOffsetLabel(hours) {
   return `+${hourPart ? `${hourPart}h` : ""}${minutePart ? `${minutePart}m` : ""}`;
 }
 
-function Metric({ label, value, period = "日均", note }) {
-  return <div className="metric"><span>{label}</span><div className="metric-value" aria-label={`${value}，${period}`}><strong>{value}</strong><em>{period}</em></div><small>{note}</small></div>;
+function Metric({ label, value, period = "日均" }) {
+  return <div className="metric"><span>{label}</span><div className="metric-value" aria-label={`${value}，${period}`}><strong>{value}</strong><em>{period}</em></div></div>;
 }
 
 function PageHeading({ index, title, description, backdrop, children }) {
@@ -448,7 +448,7 @@ export function App() {
   return (
     <main className="app-shell">
       <aside className="step-rail" aria-label="计算步骤">
-        <div className="brand-mark" aria-label="帝江排班计算器"><Calculator size={23} weight="fill" /></div>
+        <div className="brand-mark"><img src="/dijiang-mark.svg?v=6" width="40" height="40" alt="帝江排班计算器" /></div>
         <div className="rail-steps">
           <button className={`rail-step ${activeSection === "config" ? "rail-step--active" : ""}`} aria-current={activeSection === "config" ? "step" : undefined} aria-label="配置计算参数" onClick={() => goToSection("config", configRef)}><SlidersHorizontal size={21} weight="bold" /><span>配置</span></button>
           <button className={`rail-step ${activeSection === "result" ? "rail-step--active" : ""}`} aria-current={activeSection === "result" ? "step" : undefined} aria-label="查看计算结果" onClick={() => goToSection("result", resultRef)} disabled={!calculated} title={calculated ? "查看上次计算结果" : "完成计算后查看结果"}><ChartLineUp size={21} weight="bold" /><span>结果</span></button>
@@ -458,7 +458,7 @@ export function App() {
 
       <section className="workspace">
         <header className="topbar">
-          <div className="topbar-title"><h1>帝江排班计算器</h1><p className="eyebrow">// DIJIANG / SHIFT CALCULATOR</p></div>
+          <div className="topbar-title"><h1 aria-label="帝江排班计算器"><img className="wordmark-name" src="/dijiang-wordmark.svg?v=4" width="82" height="40" alt="帝江" /><span className="wordmark-function"><span>排班</span><span>计算器</span></span></h1><p className="eyebrow"><span>DIJIANG</span><small>SHIFT CALCULATOR</small></p></div>
         </header>
         <div className="calculator-layout">
           {activeSection === "config" && (
@@ -475,6 +475,7 @@ export function App() {
             {shareFallback && <label className="share-fallback">手动复制配置链接<input aria-label="配置分享链接" readOnly value={shareFallback} onFocus={(event) => event.target.select()} /></label>}
             <div className="config-workbench">
               <div className="config-controls">
+                <div className="control-heading"><span>排班条件</span><small>SETUP</small></div>
                 <fieldset className="field-group">
                   <legend>排班策略</legend>
                   <div className="mode-switch">
@@ -483,16 +484,16 @@ export function App() {
                   </div>
                 </fieldset>
                 <fieldset className="field-group">
-                  <legend>制造舱Ⅰ</legend>
-                  <div className="select-wrap"><select aria-label="制造舱Ⅰ生产配方" value={manufacturingRecipes["manufacture-a"]} onChange={(event) => setManufacturingRecipe("manufacture-a", event.target.value)}>{Object.entries(MANUFACTURING_RECIPES).map(([value, option]) => <option value={value} key={value}>{option.label}</option>)}</select><CaretDown size={17} weight="bold" /></div>
+                  <legend><Factory size={16} aria-hidden="true" />制造舱Ⅰ</legend>
+                  <div className="select-wrap"><SelectField label="制造舱Ⅰ生产配方" tone="dark" value={manufacturingRecipes["manufacture-a"]} onChange={(value) => setManufacturingRecipe("manufacture-a", value)} options={Object.entries(MANUFACTURING_RECIPES).map(([value, option]) => ({ value, label: option.label }))} /></div>
                 </fieldset>
                 <fieldset className="field-group">
-                  <legend>制造舱Ⅱ</legend>
-                  <div className="select-wrap"><select aria-label="制造舱Ⅱ生产配方" value={manufacturingRecipes["manufacture-b"]} onChange={(event) => setManufacturingRecipe("manufacture-b", event.target.value)}>{Object.entries(MANUFACTURING_RECIPES).map(([value, option]) => <option value={value} key={value}>{option.label}</option>)}</select><CaretDown size={17} weight="bold" /></div>
+                  <legend><Factory size={16} aria-hidden="true" />制造舱Ⅱ</legend>
+                  <div className="select-wrap"><SelectField label="制造舱Ⅱ生产配方" tone="dark" value={manufacturingRecipes["manufacture-b"]} onChange={(value) => setManufacturingRecipe("manufacture-b", value)} options={Object.entries(MANUFACTURING_RECIPES).map(([value, option]) => ({ value, label: option.label }))} /></div>
                 </fieldset>
                 <fieldset className="field-group">
-                  <legend>培养舱Ⅰ</legend>
-                  <div className="select-wrap"><select aria-label="培养对象" value={growthCategory} onChange={(event) => { setGrowthCategory(event.target.value); invalidate(); }}>{Object.entries(GROWTH_OPTIONS).map(([value, option]) => <option value={value} key={value}>{option.label}</option>)}</select><CaretDown size={17} weight="bold" /></div>
+                  <legend><Cube size={16} aria-hidden="true" />培养舱Ⅰ</legend>
+                  <div className="select-wrap"><SelectField label="培养对象" tone="dark" value={growthCategory} onChange={(value) => { setGrowthCategory(value); invalidate(); }} options={Object.entries(GROWTH_OPTIONS).map(([value, option]) => ({ value, label: option.label }))} /></div>
                 </fieldset>
                 {mode === "afk" && (
                   <fieldset className="field-group field-group--cadence">
@@ -516,11 +517,11 @@ export function App() {
                 )}
               </div>
 
-              <fieldset className="field-group field-group--operators">
-                <legend><span>参与计算的干员</span><small>默认 E4 · 可逐人调整练度</small></legend>
+              <section className="field-group field-group--operators" aria-labelledby="operator-section-title">
+                <header className="operator-heading"><h3 id="operator-section-title">参与计算的干员</h3><small>默认 E4 · 可逐人调整练度</small></header>
                 <div className="operator-toolbar">
                   <label className="operator-search"><MagnifyingGlass size={17} weight="bold" /><input aria-label="搜索干员" value={operatorSearch} onChange={(event) => setOperatorSearch(event.target.value)} placeholder="搜索干员" /></label>
-                  <label className="operator-filter"><span>设施</span><select value={facilityFilter} onChange={(event) => setFacilityFilter(event.target.value)}><option value="all">全部设施</option>{FACILITIES.map((facility) => <option value={facility} key={facility}>{facility}</option>)}</select></label>
+                  <div className="operator-filter"><span>设施</span><SelectField label="设施筛选" value={facilityFilter} onChange={setFacilityFilter} options={[{ value: "all", label: "全部设施" }, ...FACILITIES.map((facility) => ({ value: facility, label: facility }))]} /></div>
                   <span className="selection-count operator-selection-count">已选 {selected.length}/{OPERATORS.length}</span>
                   <button className={`select-all-button ${allOperatorsSelected ? "is-active" : ""}`} aria-pressed={allOperatorsSelected} onClick={toggleAllOperators}>{allOperatorsSelected ? "全不选" : `全选 ${OPERATORS.length}`}</button>
                 </div>
@@ -536,7 +537,7 @@ export function App() {
                           <span className="operator-copy"><span><strong>{operator.name}</strong><small className="rarity">{operator.rarity}★</small></span><small>{active ? "参与计算" : "未拥有 / 不参与"}</small></span>
                           <span className="check-box">{active && <Check size={14} weight="bold" />}</span>
                         </button>
-                        <label className="promotion-control"><span>练度</span><select value={promotion} onChange={(event) => setPromotion(operator.id, event.target.value)} aria-label={`${operator.name}练度`}>{[0, 1, 2, 3, 4].map((level) => <option value={level} key={level}>E{level}</option>)}</select></label>
+                        <div className="promotion-control"><span>练度</span><SelectField label={`${operator.name}练度`} tone={active ? "dark" : "light"} value={promotion} onChange={(value) => setPromotion(operator.id, value)} options={[0, 1, 2, 3, 4].map((level) => ({ value: level, label: `E${level}` }))} /></div>
                         <div className="skill-chips">
                           {skillSummary.length ? skillSummary.map((skill) => <span className={`skill-chip ${skill.activeTier ? "" : "skill-chip--locked"}`} key={skill.name} title={skill.name}><strong>{skill.facility}</strong><small>{skill.activeTier?.description ?? `E${skill.tiers[0].promotion} 解锁`}</small></span>) : <span className="skill-chip skill-chip--pending"><strong>资料待确认</strong><small>暂不参与技能匹配</small></span>}
                         </div>
@@ -545,7 +546,7 @@ export function App() {
                   })}
                   {!filteredOperators.length && <div className="operator-empty">没有符合当前筛选条件的干员</div>}
                 </div>
-              </fieldset>
+              </section>
             </div>
 
           </section>
@@ -560,11 +561,11 @@ export function App() {
               </div>
             </PageHeading>
             <div className="metric-row">
-              <Metric label="高级认知载体" value={dailySummary.cognitive.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
-              <Metric label="高级作战记录" value={dailySummary.operator.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
-              <Metric label="武器检查套组" value={dailySummary.weapon.toFixed(1)} note="制造舱 · 最高等级 · 实际在岗折算" />
-              <Metric label={`${GROWTH_OPTIONS[resultGrowthCategory].label}培养`} value={dailySummary.growth.toFixed(2)} note="培养舱 · 最高等级 · 9 箱 / 61h06m40s" />
-              <Metric label="预计线索搜集" value={dailySummary.clues.toFixed(2)} note="会客室 · 按 72 小时基础周期估算" />
+              <Metric label="高级认知载体" value={dailySummary.cognitive.toFixed(1)} />
+              <Metric label="高级作战记录" value={dailySummary.operator.toFixed(1)} />
+              <Metric label="武器检查套组" value={dailySummary.weapon.toFixed(1)} />
+              <Metric label={`${GROWTH_OPTIONS[resultGrowthCategory].label}培养`} value={dailySummary.growth.toFixed(2)} />
+              <Metric label="预计线索搜集" value={dailySummary.clues.toFixed(2)} />
             </div>
             <div className="operation-strip" aria-label="排班运行指标">
               <div><span>平均产效</span><strong>{(dailySummary.averageEfficiency * 100).toFixed(0)}%</strong><small>生产设施等权平均</small></div>

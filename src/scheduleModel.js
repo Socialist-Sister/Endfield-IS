@@ -1,3 +1,5 @@
+import { cacheEquivalentAxes } from "./axisEvaluationCache.js";
+
 export const BASE_ASSIGNMENT_BONUS = 0.4;
 export const BASE_MOOD_DRAIN_PER_HOUR = 7;
 export const BASE_MOOD_RECOVERY_PER_HOUR = 12;
@@ -211,7 +213,8 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
     moodRegenTotals.fill(0);
     skillTotals.fill(0);
 
-    states.forEach((state) => {
+    for (let stateIndex = 0; stateIndex < states.length; stateIndex += 1) {
+      const state = states[stateIndex];
       if (!state.started && time + 1e-7 >= state.startAt) {
         state.started = true;
         state.working = true;
@@ -219,20 +222,21 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
         state.mood = MOOD_MAX;
         state.working = true;
       }
-      if (!state.working) return;
+      if (!state.working) continue;
       const { roomIndex, profile } = state;
       activeCounts[roomIndex] += 1;
       moodDropTotals[roomIndex] += profile.moodDrop;
       moodRegenTotals[roomIndex] += profile.moodRegen;
       skillTotals[roomIndex] += profile.outputBonus;
-    });
+    }
 
     const recoveryRate = BASE_MOOD_RECOVERY_PER_HOUR * (1 + ((controlIndex >= 0 ? moodRegenTotals[controlIndex] : 0) / 100));
     for (let index = 0; index < roomCount; index += 1) {
       drainRates[index] = BASE_MOOD_DRAIN_PER_HOUR * (1 - Math.min(0.95, moodDropTotals[index] / 100));
     }
     let nextTime = totalHours;
-    states.forEach((state) => {
+    for (let stateIndex = 0; stateIndex < states.length; stateIndex += 1) {
+      const state = states[stateIndex];
       if (!state.started) {
         nextTime = Math.min(nextTime, state.startAt);
       } else if (state.working) {
@@ -240,7 +244,7 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
       } else {
         nextTime = Math.min(nextTime, time + ((MOOD_MAX - state.mood) / recoveryRate));
       }
-    });
+    }
     const duration = Math.max(0, nextTime - time);
     if (duration <= 1e-9) {
       time += 1e-7;
@@ -249,7 +253,8 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
     const measuredDuration = Math.max(0, Math.min(nextTime, totalHours) - Math.max(time, warmupHours));
 
     if (measuredDuration > 0) {
-      model.forEach((profile, roomIndex) => {
+      for (let roomIndex = 0; roomIndex < roomCount; roomIndex += 1) {
+        const profile = model[roomIndex];
         const count = activeCounts[roomIndex];
         const category = profile.category;
         const factor = count && category
@@ -258,19 +263,20 @@ function simulateAfkModel(model, offsetsByRoom, { warmupHours, sampleHours }) {
         accumulators[roomIndex].effectiveHours += factor * measuredDuration;
         accumulators[roomIndex].coverageHours += (count ? 1 : 0) * measuredDuration;
         accumulators[roomIndex].activeOperatorHours += count * measuredDuration;
-      });
+      }
       recoveryRateHours += recoveryRate * measuredDuration;
     }
 
-    states.forEach((state) => {
-      if (!state.started) return;
+    for (let stateIndex = 0; stateIndex < states.length; stateIndex += 1) {
+      const state = states[stateIndex];
+      if (!state.started) continue;
       if (state.working) {
         state.mood = Math.max(0, state.mood - (drainRates[state.roomIndex] * duration));
         if (state.mood <= 1e-7) state.working = false;
       } else {
         state.mood = Math.min(MOOD_MAX, state.mood + (recoveryRate * duration));
       }
-    });
+    }
     time = nextTime;
   }
 
@@ -383,16 +389,16 @@ function productionScore(rooms, roomStats) {
 
 function optimizeSharedAxis(rooms, assignments, manufacturingRecipes, growthCategory) {
   const model = buildAfkModel(rooms, assignments, manufacturingRecipes, growthCategory);
-  const result = searchAxis((axis) => {
+  const result = searchAxis(cacheEquivalentAxes(model, (axis) => {
     const offsetsByRoom = Object.fromEntries(rooms.map((room) => [room.id, axis]));
     const simulation = simulateAfkModel(model, offsetsByRoom, searchOptions());
     return productionScore(rooms, simulation.roomStats);
-  });
-  const verifiedAxis = selectVerifiedAxis(result.finalists, (axis) => {
+  }));
+  const verifiedAxis = selectVerifiedAxis(result.finalists, cacheEquivalentAxes(model, (axis) => {
     const offsetsByRoom = Object.fromEntries(rooms.map((room) => [room.id, axis]));
     const simulation = simulateAfkModel(model, offsetsByRoom, verificationOptions());
     return productionScore(rooms, simulation.roomStats);
-  });
+  }));
   return {
     offsetsByRoom: Object.fromEntries(rooms.map((room) => [room.id, verifiedAxis])),
     sharedOffsets: verifiedAxis,
@@ -413,22 +419,23 @@ function optimizeFacilityAxes(rooms, assignments, manufacturingRecipes, growthCa
     }
     const localRooms = controlRoom ? [room, controlRoom] : [room];
     const localModel = buildAfkModel(localRooms, assignments, manufacturingRecipes, growthCategory);
-    const roomResult = searchAxis((axis) => {
+    // Only this room’s slots move; the Control Nexus axis stays fixed throughout this search.
+    const roomResult = searchAxis(cacheEquivalentAxes([localModel[0]], (axis) => {
       const simulation = simulateAfkModel(localModel, {
         [room.id]: axis,
         ...(controlRoom ? { control: controlAxis } : {}),
       }, searchOptions());
       const stats = simulation.roomStats[room.id];
       return { score: stats.effectiveHoursPerDay, coverage: stats.coverageRate };
-    }, [controlAxis]);
-    offsetsByRoom[room.id] = selectVerifiedAxis(roomResult.finalists, (axis) => {
+    }), [controlAxis]);
+    offsetsByRoom[room.id] = selectVerifiedAxis(roomResult.finalists, cacheEquivalentAxes([localModel[0]], (axis) => {
       const simulation = simulateAfkModel(localModel, {
         [room.id]: axis,
         ...(controlRoom ? { control: controlAxis } : {}),
       }, verificationOptions());
       const stats = simulation.roomStats[room.id];
       return { score: stats.effectiveHoursPerDay, coverage: stats.coverageRate };
-    });
+    }));
     evaluatedCandidates += roomResult.evaluatedCandidates + roomResult.finalists.length;
   });
 
