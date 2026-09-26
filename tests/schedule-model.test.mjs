@@ -30,9 +30,9 @@ test("skill display order keeps output effects before mood effects", () => {
   assert.deepEqual(ordered.map((item) => item.name), ["output", "recovery", "mood"]);
 });
 
-test("roster remains 30 unique two-skill operators with verified clue and growth data", () => {
-  assert.equal(OPERATORS.length, 30);
-  assert.equal(new Set(OPERATORS.map((item) => item.id)).size, 30);
+test("roster remains 31 unique two-skill operators with verified clue and growth data", () => {
+  assert.equal(OPERATORS.length, 31);
+  assert.equal(new Set(OPERATORS.map((item) => item.id)).size, 31);
   assert.ok(OPERATORS.every((item) => item.skills.length === 2));
   const avywenna = OPERATORS.find((item) => item.id === "avywenna");
   assert.equal(avywenna.skills[1].category, "clue-special");

@@ -13,7 +13,7 @@
 [![Release](https://img.shields.io/badge/Release-v0.3.0-202421?style=flat-square)](https://github.com/Socialist-Sister/Endfield-IS/releases/tag/v0.3.0)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
-[![Operators](https://img.shields.io/badge/Operators-30-F5DD26?style=flat-square&labelColor=171918)](#核心能力)
+[![Operators](https://img.shields.io/badge/Operators-31-F5DD26?style=flat-square&labelColor=171918)](#核心能力)
 
 <kbd>AFK Solver</kbd> <kbd>Fixed Rotation</kbd> <kbd>Morale Simulation</kbd> <kbd>Production Estimate</kbd>
 
@@ -68,7 +68,7 @@
 
 ## 核心能力
 
-- **30 名可排班干员**：排除暂无可靠基建数据的两种管理员形态；没有匹配技能的干员仍可作为通用进驻人员参与计算。
+- **31 名可排班干员**：排除暂无可靠基建数据的两种管理员形态；没有匹配技能的干员仍可作为通用进驻人员参与计算。
 - **练度驱动技能**：逐名设置 E0–E4，自动控制最多两个基建技能的解锁和升级。结果页同时展示两个技能槽，未解锁或不生效技能会保留并置灰。
 - **逐舱生产目标**：制造舱Ⅰ、制造舱Ⅱ分别固定选择高级认知载体、高级作战记录或武器检查套组；培养舱Ⅰ固定选择矿物、晶植或菌类类别。
 - **跨设施唯一分配**：统一计算总控中枢、会客室、制造舱Ⅰ、制造舱Ⅱ和培养舱Ⅰ，避免同一干员在同一时间被重复安排。
@@ -162,6 +162,8 @@ Vercel 的路由与构建设置见 [`vercel.json`](vercel.json)。
 ## 数据与素材
 
 干员头像以本地静态资源随项目发布，避免运行时依赖第三方图片服务。头像对应关系参考了 [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) 的公开映射。
+
+噗切娜的基建技能与 E1–E4 解锁/升级数据核对自 [华法琳 Wiki](https://warfarin.wiki/cn/operators/purrchena)，并与 [perlica.moe](https://perlica.moe/operators/purrchena) 交叉核对；新增头像取自后者并在本地裁切为方形。核对日期：2026-09-26。
 
 界面背景纹理来自终末地官网；“帝江”字标与帝江号图标来自用户提供的游戏素材，保留原图字形和轮廓，仅裁切并适配配色。来源及处理方式见 [品牌素材说明](docs/brand/README.md) 和 [背景素材说明](public/textures/README.md)。
 

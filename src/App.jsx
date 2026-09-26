@@ -657,7 +657,7 @@ export function App() {
                 <span className="about-section__code">LIMIT</span>
                 <h3>数据与边界</h3>
                 <ul className="about-list">
-                  <li>当前收录 30 名具有可确认基建信息的干员；管理员不参与分配。</li>
+                  <li>当前收录 {OPERATORS.length} 名具有可确认基建信息的干员；管理员不参与分配。</li>
                   <li>线索数量按 72 小时基础周期估算，该常量仍待独立核验。定向技能只作 L1 / L2 倾向，不额外增加总量。</li>
                   <li>工具不会读取或控制游戏；游戏机制与数值更新后，结果需随数据版本重新校验。</li>
                 </ul>

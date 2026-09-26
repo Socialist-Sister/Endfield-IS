@@ -94,6 +94,11 @@ export const OPERATORS = [
     percentSkill("武器磨砺", "制造舱", "weapon-exp", "武器经验效率", 20, 30),
     percentSkill("士气鼓舞", "制造舱", "mood-drop", "心情消耗", 14, 18, 2, "-"),
   ]),
+  // Verified against warfarin.wiki/cn/operators/purrchena (2026-09-26).
+  operator("purrchena", "噗切娜", 5, [
+    clueSkill("形象代言人", 2),
+    percentSkill("任务后的点心", "制造舱", "operator-exp", "干员经验效率", 20, 30, 2),
+  ]),
   operator("perlica", "佩丽卡", 5, [
     percentSkill("监督", "总控中枢", "mood-regen", "全员心情恢复", 8, 12),
     percentSkill("协议再分配", "制造舱", "weapon-exp", "武器经验效率", 20, 30, 2),
