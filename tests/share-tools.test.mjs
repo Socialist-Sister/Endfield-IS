@@ -73,8 +73,20 @@ test("legacy two-login links migrate to manual AB schedules", () => {
   const legacy = btoa(JSON.stringify({v:1,m:"s",o:["purrchena"],t:["08:00","22:30"]}));
   const result = decodeSharedConfiguration(legacy);
   assert.equal(result.mode, "manual");
-  assert.deepEqual(result.roomPlans.control, {kind:"dual",start:8,duration:14.5,offsets:[0,5,10]});
+  assert.deepEqual(result.roomPlans.control, {kind:"dual",start:8,duration:15,offsets:[0,5,10]});
   assert.match(result.migrationNotice, /AB/);
+});
+test("v2 half-hour AB links round endpoints visibly without changing single entry offsets", () => {
+  const result = decodeSharedConfiguration(btoa(JSON.stringify({v:2,m:"m",o:["si"],p:[["si",2]],b:{
+    reception:{kind:"dual",start:22.5,duration:1.5},control:{kind:"single",offsets:[0,2.5,7.5]}
+  }})));
+  assert.equal(result.roomPlans.reception.start,23);
+  assert.equal(result.roomPlans.reception.duration,1);
+  assert.deepEqual(result.roomPlans.control.offsets,[0,2.5,7.5]);
+  assert.deepEqual(result.selected,["si"]);
+  assert.equal(result.promotions.si,2);
+  assert.match(result.migrationNotice,/整点/);
+  assert.equal(decodeSharedConfiguration(encodeSharedConfiguration(result)).migrationNotice,undefined);
 });
 test("legacy three-login and AFK links retain inputs but migrate visibly to automatic planning", () => {
   for (const m of ["s", "a"]) {

@@ -327,7 +327,7 @@ export function App() {
           }))
           : (shiftAssignments[room.id] ?? []).map((team, shiftIndex) => ({
             label: `${shiftIndex === 0 ? "A" : "B"} 组 · ${planWindow(plan, shiftIndex).label}`,
-            note: `${planWindow(plan, shiftIndex).duration} 小时${roomSummary.groups[shiftIndex].fatigueHours > 0.01 ? ` · 班内疲劳 ${roomSummary.groups[shiftIndex].fatigueHours.toFixed(2)}h/日` : ""}`,
+            note: `${planWindow(plan, shiftIndex).duration} 小时${roomSummary.groups[shiftIndex].fatigueHours > 0.01 ? ` · 续航不足：班内疲劳 ${roomSummary.groups[shiftIndex].fatigueHours.toFixed(2)}h/日` : ""}`,
             members: team.map((operator) => memberData(operator, team)),
           }));
         const chunks = [];
@@ -547,7 +547,7 @@ export function App() {
             </div>
             <section className="timeline-section">
               <div className="section-label-row"><div><span>ASSIGNMENT PLAN</span><h3>按舱室设置人员与时段</h3></div><button className="plan-adjust" onClick={() => { setMode("manual"); setRoomPlans(structuredClone(resultRoomPlans)); invalidate(); goToSection("config", configRef); }}>调整此方案</button></div>
-              <p className="plan-result-note">前瞻机制预览 · AB 时刻为 UTC+8；单班 T 为首次进驻的相对时间。按现有疲劳离岗、满心情返岗规则估算。</p>
+              <p className="plan-result-note">模拟口径 · AB 按 UTC+8 整点换班；单班 T 为首次进驻的相对时间。按现有疲劳离岗、满心情返岗规则估算。</p>
               <div className="assignment-board assignment-board--planning">
 
                 {RESULT_ROOM_META.map((room, roomIndex) => {
@@ -573,7 +573,7 @@ export function App() {
                               return <section className="shift-block" key={`${room.id}-${groupIndex}`}>
                                 <header className="shift-block__header"><span>{groupIndex === 0 ? "A" : "B"} 组 · {window.duration} 小时</span><strong>{window.label}</strong></header>
                                 <div className="shift-operators">{team.length ? team.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={operator.id} style={{ "--delay": `${index * 45 + groupIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={resultManufacturingRecipes} growthCategory={resultGrowthCategory} team={team} /></span></div>) : <div className="empty-lane">本班无人 · 不产生收益</div>}</div>
-                                {health.fatigueHours > 0.01 && <p className="plan-fatigue">班内疲劳约 {health.fatigueHours.toFixed(2)} 小时/日</p>}
+                                {health.fatigueHours > 0.01 && <p className="plan-fatigue">续航不足 · 班内疲劳约 {health.fatigueHours.toFixed(2)} 小时/日</p>}
                               </section>;
                             })}
                           </div>
@@ -624,7 +624,7 @@ export function App() {
                 <ol className="solver-steps">
                   <li><span>01</span><div><strong>建立状态</strong><p>根据练度解析技能，为五个舱室生成候选组合，并固定两个制造配方与一个培养质料类型。</p></div></li>
                   <li><span>02</span><div><strong>模拟运行</strong><p>逐时间片追踪在岗人数、心情消耗、休息恢复、自动下班与返岗；AB 舱室到指定时刻整组替换，未上班的班组不提供技能。</p></div></li>
-                  <li><span>03</span><div><strong>比较运行方式</strong><p>自动方案生成单班、双班和混合候选，在半小时网格调整时间及人员。搜索后统一以 180 日预热、90 日采样复核，保留旧单班推荐作为收益基线。</p></div></li>
+                  <li><span>03</span><div><strong>比较运行方式</strong><p>自动方案生成单班、双班和混合候选。AB 仅整点换班，优先筛选能撑满班次的安排，再比较实际产量；单班首次进驻保留半小时精度。搜索后统一以 180 日预热、90 日采样复核，保留旧单班推荐作为收益基线。</p></div></li>
                   <li><span>04</span><div><strong>比较产出</strong><p>每个生产时间片按（1 + 40% × 在岗人数）×（1 + 当前配方适用技能合计）计算，并将停产时间计入最终日产量。</p></div></li>
                 </ol>
               </section>
@@ -643,7 +643,8 @@ export function App() {
                 <span className="about-section__code">LIMIT</span>
                 <h3>数据与边界</h3>
                 <ul className="about-list">
-                  <li>模拟口径（前瞻预览）：暂按各舱室可独立选择单班或 AB、每人只编入一个班组计算。AB 心情耗尽后休息，仅在本班时段内满心情返岗；换班时允许带剩余心情接班。此规则及半小时粒度、空班支持需实装核验。</li>
+                  <li>模拟口径（前瞻预览）：暂按各舱室可独立选择单班或 AB、每人只编入一个班组计算。AB 心情耗尽后休息，仅在本班时段内满心情返岗；换班时允许带剩余心情接班。AB 按游戏要求仅整点换班；其余返岗机制和空班支持仍需实测核验。</li>
+                  <li>续航校验从满心情出发连续模拟多日，不在换班时重置心情。游戏的预计工时还取决于干员当前心情；若套用方案时尚未恢复，仍可能出现工时不足提醒。</li>
                   <li>当前收录 {OPERATORS.length} 名具有可确认基建信息的干员；管理员不参与分配。</li>
                   <li>线索数量按 72 小时基础周期估算，该常量仍待独立核验。定向技能只作 L1 / L2 倾向，不额外增加总量。</li>
                   <li>工具不会读取或控制游戏；游戏机制与数值更新后，结果需随数据版本重新校验。</li>

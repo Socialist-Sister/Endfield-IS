@@ -1,16 +1,19 @@
 import { BASE_MOOD_DRAIN_PER_HOUR, BASE_MOOD_RECOVERY_PER_HOUR, MOOD_MAX, DEFAULT_MANUFACTURING_RECIPES, manufacturingSkillCategory, sumSkillValue, summarizeOutputs } from "./scheduleModel.js";
 
 export const PLAN_ROOM_IDS = ["control", "reception", "manufacture-a", "manufacture-b", "growth"];
-export const PLAN_RULES = Object.freeze({ version: "preview-2026-10-08", resolutionMinutes: 30, warmupDays: 180, sampleDays: 90 });
+export const PLAN_RULES = Object.freeze({ version: "hourly-ab-2026-10-15", resolutionMinutes: 60, singleResolutionMinutes: 30, warmupDays: 180, sampleDays: 90 });
 const EPS = 1e-7;
 export const modulo24 = (value) => ((value % 24) + 24) % 24;
 const finite = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 export function normalizeRoomPlans(value = {}, ids = PLAN_ROOM_IDS) {
   return Object.fromEntries(ids.map((id) => {
     const plan = value?.[id];
+    const start = modulo24(finite(plan?.start, 0));
+    const duration = Math.max(0.5, Math.min(23.5, finite(plan?.duration, 12)));
     return [id, { kind: plan?.kind === "single" ? "single" : "dual",
-      start: modulo24(Math.round(finite(plan?.start, 0) * 2) / 2),
-      duration: Math.max(0.5, Math.min(23.5, Math.round(finite(plan?.duration, 12) * 2) / 2)),
+      start: modulo24(Math.round(start)),
+      // Round both clock endpoints, not start and duration independently.
+      duration: Math.max(1, Math.min(23, Math.round(start + duration) - Math.round(start))),
       offsets: [0, 1, 2].map((index) => Math.max(0, Math.min(23.5, Math.round(finite(plan?.offsets?.[index], [0, 5, 10][index]) * 2) / 2))),
     }];
   }));

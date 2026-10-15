@@ -52,8 +52,12 @@ export function decodeSharedConfiguration(value) {
         const clock = (value) => { const [h, m] = value.split(":").map(Number); return h + m / 60; };
         mode = "manual";
         roomPlans = normalizeRoomPlans(Object.fromEntries(Object.keys(roomPlans).map((id) => [id, { kind: "dual", start: clock(times[0]), duration: clock(times[1]) - clock(times[0]) }])));
-        migrationNotice = "旧倒班时间已转换为所有舱室的 AB 时段，并对齐半小时；请核对后重新计算。";
+        migrationNotice = "旧倒班时间已转换为所有舱室的 AB 时段，并对齐整点；请核对后重新计算。";
       } else migrationNotice = payload.m === "s" ? "旧多班次配置已转为自动方案；干员和配方保留，原上线时间不再使用。" : "旧挂机配置已转为自动方案；干员和配方保留，将重新比较单班和双班。";
+    }
+    if (payload.v === 2 && mode === "manual" && Object.entries(roomPlans).some(([id, plan]) =>
+      plan.kind === "dual" && payload.b?.[id] && (plan.start !== payload.b[id].start || plan.duration !== payload.b[id].duration))) {
+      migrationNotice = "旧 AB 配置已按游戏要求对齐整点；干员、配方和单班启动偏移保留，请核对换班时间后重新计算。";
     }
     return {
       mode,

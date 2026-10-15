@@ -54,6 +54,49 @@ test("malformed times normalize to finite half-hour values", () => {
   const plans=normalizeRoomPlans({[room.id]:{kind:"invalid",start:NaN,duration:Infinity,offsets:[-10,"8",99]}},[room.id]);
   assert.deepEqual(plans[room.id],{kind:"dual",start:0,duration:12,offsets:[0,5,23.5]});
 });
+
+test("AB boundaries use whole hours while single entry offsets retain half-hours", () => {
+  for (const [start,duration,expected] of [[22.5,1.5,[23,1]],[23.5,12,[0,12]],[0,.5,[0,1]],[0,23.5,[0,23]],[-2.5,5,[22,5]]]) {
+    const plan=normalizeRoomPlans({[room.id]:{kind:"dual",start,duration,offsets:[0,2.5,7.5]}},[room.id])[room.id];
+    assert.deepEqual([plan.start,plan.duration],expected);
+    assert.deepEqual(plan.offsets,[0,2.5,7.5]);
+    assert.equal(planWindow(plan,0).end,planWindow(plan,1).start);
+    assert.equal(planWindow(plan,0).duration+planWindow(plan,1).duration,24);
+  }
+});
+
+test("endurance checks include recovery across days, not just a full-morale first shift", () => {
+  const teams=[[worker("a",{"mood-drop":18})],[worker("b")]];
+  const plan={kind:"dual",start:0,duration:17};
+  const first=simulate(teams,plan,{warmupDays:0,sampleDays:1});
+  close(first.rooms[room.id].groups[0].fatigueHours,0);
+  const recurring=simulate(teams,plan);
+  assert.ok(recurring.rooms[room.id].groups[0].fatigueHours>0);
+  assert.ok(recurring.rooms[room.id].coverageRate<1);
+});
+
+test("automatic full roster returns hourly AB crews without in-shift fatigue after long verification", () => {
+  const rooms=[room,{id:"manufacture-b",type:"制造舱"},{id:"growth",type:"培养舱"},{id:"reception",type:"会客室"},{id:"control",type:"总控中枢"}];
+  const result=optimizePlan({mode:"auto",rooms,operators:OPERATORS,promotions:{},manufacturingRecipes:{"manufacture-a":"advanced-cognitive-carrier","manufacture-b":"advanced-battle-record"},growthCategory:"rare-mineral"});
+  assert.ok(Object.values(result.roomPlans).some(plan=>plan.kind==="dual"));
+  for (const r of rooms) if(result.roomPlans[r.id].kind==="dual") {
+    assert.ok(Number.isInteger(result.roomPlans[r.id].start));
+    assert.ok(Number.isInteger(result.roomPlans[r.id].duration));
+    for(const group of result.summary.rooms[r.id].groups) assert.ok(group.fatigueHours<1e-7);
+  }
+  assert.equal(result.summary.planning.warmupDays,180);
+  assert.equal(result.summary.planning.sampleDays,90);
+  assert.equal(result.summary.planning.abFatigueHours,0);
+  assert.ok(result.summary.planning.score>=result.summary.planning.singleBaselineScore-1e-7);
+});
+
+test("manual overlong shifts keep user timing and report fatigue instead of silently shortening", () => {
+  const result=optimizePlan({mode:"manual",rooms:[room],operators:OPERATORS.slice(0,2),promotions:Object.fromEntries(OPERATORS.slice(0,2).map(op=>[op.id,0])),manufacturingRecipes:{"manufacture-a":"advanced-cognitive-carrier"},growthCategory:"rare-mineral",roomPlans:{[room.id]:{kind:"dual",start:22,duration:20}}});
+  assert.equal(result.roomPlans[room.id].start,22);
+  assert.equal(result.roomPlans[room.id].duration,20);
+  assert.ok(result.summary.planning.abFatigueHours>0);
+  assert.ok(result.summary.rooms[room.id].downtimeHours>0);
+});
 test("one selected operator can be scheduled; manual constraints survive unchanged", () => {
   const input={mode:"manual",rooms:[room],operators:[OPERATORS.find(op=>op.id==='purrchena')],promotions:{},manufacturingRecipes:{"manufacture-a":"advanced-battle-record"},growthCategory:"rare-mineral",roomPlans:{[room.id]:{kind:"dual",start:22,duration:10}}};
   const result=optimizePlan(input);

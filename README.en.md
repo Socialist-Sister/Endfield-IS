@@ -83,11 +83,11 @@ These previews show `v0.3.0`: a shared contour background, dark selected-operato
 
 ### Automatic
 
-Jointly recommend single-team staggering or AB rotation, operators, and timing per facility. Mixed plans are candidates; AB is not assumed to outperform single-team operation. Rank by long-run efficiency, preferring simpler setup for numerical ties. The search is heuristic, not a global-optimum guarantee.
+Jointly recommend single-team staggering or AB rotation, operators, and timing per facility. Mixed plans are candidates; AB is not assumed to outperform single-team operation. AB changes occur on the hour. Prefer candidates whose crews sustain their entire shifts, then rank by long-run efficiency, preferring simpler setup for numerical ties. Normal single-team fatigue cycles and empty-shift downtime still count toward actual output. The search is heuristic, not a global-optimum guarantee.
 
 ### Manual
 
-Set first-entry offsets for three single-team slots, or an AB start and A-team duration per facility; B fills the remaining day. Supports midnight crossing, half-hour resolution, and apply-to-all. The solver assigns people under those fixed constraints. AB times use UTC+8 and are independent of player login times.
+Set first-entry offsets for three single-team slots, or an AB start and A-team duration per facility; B fills the remaining day. Supports midnight crossing and apply-to-all, with whole-hour AB boundaries and half-hour single-team entry offsets. The solver assigns people under those fixed constraints and flags insufficient endurance in results and exports. Older half-hour AB links are rounded to whole hours with a visible review notice. AB times use UTC+8 and are independent of player login times.
 
 > **Preview adaptation for the rotation system.** Independent facility settings, exclusive operator presets, empty-shift downtime, and existing exhaustion/rest/full-morale-return behavior are provisional until verified in game. AB members only return during their active shift. The v0.3.0 screenshots above illustrate the established visual style; use the current app for the updated planning modes.
 
