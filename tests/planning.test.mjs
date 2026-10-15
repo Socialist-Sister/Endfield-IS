@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { evaluatePlan, normalizeRoomPlans, planWindow, activePlanGroup } from "../src/planningModel.js";
 import { evaluateStartupOffsets, evaluateShiftAssignments } from "../src/scheduleModel.js";
-import { optimizePlan } from "../src/planningOptimizer.js";
+import { optimizePlan, isBetterPlanCandidate } from "../src/planningOptimizer.js";
+import { prepareCandidate } from "../src/assignmentOptimizer.js";
 import { OPERATORS } from "../src/operatorData.js";
 const room = { id: "manufacture-a", type: "制造舱" };
 const worker = (id, skills = {}) => ({ id, activeSkills: Object.entries(skills).map(([category, value]) => ({ category, activeTier: { value } })) });
@@ -12,7 +13,7 @@ const simulate = (teams, plan, extra = {}) => evaluatePlan({ rooms: [room], team
 test("AB: rested 2+1 crews produce the analytic 160% indefinitely", () => {
   const result = simulate([[worker("a"), worker("b")], [worker("c")]], { kind: "dual", start: 0, duration: 12 });
   close(result.rooms[room.id].averageFactor, 1.6); close(result.rooms[room.id].coverageRate, 1);
-  close(result.rooms[room.id].groups[0].minMood, 16);
+  close(result.rooms[room.id].groups[0].minMood, 13.6);
 });
 test("single-team engine matches original event simulation including mixed control recovery", () => {
   const rooms = [room, { id: "control", type: "总控中枢" }];
@@ -66,7 +67,7 @@ test("AB boundaries use whole hours while single entry offsets retain half-hours
 });
 
 test("endurance checks include recovery across days, not just a full-morale first shift", () => {
-  const teams=[[worker("a",{"mood-drop":18})],[worker("b")]];
+  const teams=[[worker("a",{"mood-drop":20})],[worker("b")]];
   const plan={kind:"dual",start:0,duration:17};
   const first=simulate(teams,plan,{warmupDays:0,sampleDays:1});
   close(first.rooms[room.id].groups[0].fatigueHours,0);
@@ -75,18 +76,51 @@ test("endurance checks include recovery across days, not just a full-morale firs
   assert.ok(recurring.rooms[room.id].coverageRate<1);
 });
 
-test("automatic full roster returns hourly AB crews without in-shift fatigue after long verification", () => {
+test("reported Laevatain/Camille/Ember crew exhausts before 17h but sustains 16h", () => {
+  const names=[["莱万汀","卡缪","余烬"],["安塔尔","别礼","洁尔佩塔"]];
+  const teams=names.map(group=>group.map(name=>prepareCandidate(OPERATORS.find(op=>op.name===name),room,4)));
+  // Constant control recovery isolates maximum shift endurance from rest debt.
+  const control={id:"control",type:"总控中枢"};
+  const calculate=duration=>evaluatePlan({rooms:[room,control],teams:{[room.id]:teams,control:[[worker("ca",{"mood-regen":50})],[worker("cb",{"mood-regen":50})]]},roomPlans:{[room.id]:{kind:"dual",start:0,duration},control:{kind:"dual",start:0,duration:12}}});
+  const long=calculate(17), safe=calculate(16);
+  const expectedEndurance=100/(7.2*.82);
+  close(expectedEndurance*3600,60975.60975609756);
+  close(long.rooms[room.id].groups[0].fatigueHours,17-expectedEndurance);
+  assert.ok(long.rooms[room.id].downtimeHours>0.06);
+  assert.equal(safe.rooms[room.id].groups[0].fatigueHours,0);
+  assert.equal(safe.rooms[room.id].groups[1].fatigueHours,0);
+  close(safe.rooms[room.id].coverageRate,1);
+  close(safe.rooms[room.id].groups[0].minMood,5.536);
+  // Despite a short daily stop, extra time on the stronger A crew produces more.
+  close(safe.cognitive,3.456);
+  close(long.cognitive,3.526341463414634);
+  assert.ok(long.cognitive>safe.cognitive);
+  // Without Control Nexus bonuses, the same 17h window accrues rest debt.
+  const noControl=simulate(teams,{kind:"dual",start:0,duration:17});
+  assert.ok(noControl.cognitive<safe.cognitive);
+});
+
+test("actual output outranks fatigue; only numerical ties prefer less fatigue", () => {
+  const safe={score:3.52,abFatigue:0,coverage:1};
+  const higherOutput={score:3.591644083,abFatigue:.062330623,coverage:.99740289};
+  assert.equal(isBetterPlanCandidate(higherOutput,safe),true);
+  assert.equal(isBetterPlanCandidate(safe,higherOutput),false);
+  assert.equal(isBetterPlanCandidate(safe,{...higherOutput,score:safe.score}),true);
+  assert.equal(isBetterPlanCandidate({...higherOutput,score:3.36},safe),false);
+});
+
+test("automatic full roster ranks verified production with hourly AB windows and explicit fatigue", () => {
   const rooms=[room,{id:"manufacture-b",type:"制造舱"},{id:"growth",type:"培养舱"},{id:"reception",type:"会客室"},{id:"control",type:"总控中枢"}];
   const result=optimizePlan({mode:"auto",rooms,operators:OPERATORS,promotions:{},manufacturingRecipes:{"manufacture-a":"advanced-cognitive-carrier","manufacture-b":"advanced-battle-record"},growthCategory:"rare-mineral"});
   assert.ok(Object.values(result.roomPlans).some(plan=>plan.kind==="dual"));
   for (const r of rooms) if(result.roomPlans[r.id].kind==="dual") {
     assert.ok(Number.isInteger(result.roomPlans[r.id].start));
     assert.ok(Number.isInteger(result.roomPlans[r.id].duration));
-    for(const group of result.summary.rooms[r.id].groups) assert.ok(group.fatigueHours<1e-7);
+    for(const group of result.summary.rooms[r.id].groups) assert.ok(Number.isFinite(group.fatigueHours) && group.fatigueHours>=0);
   }
   assert.equal(result.summary.planning.warmupDays,180);
   assert.equal(result.summary.planning.sampleDays,90);
-  assert.equal(result.summary.planning.abFatigueHours,0);
+  assert.equal(result.summary.planning.selectionPolicy,"long-run-output");
   assert.ok(result.summary.planning.score>=result.summary.planning.singleBaselineScore-1e-7);
 });
 

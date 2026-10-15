@@ -1,7 +1,10 @@
 import { cacheEquivalentAxes } from "./axisEvaluationCache.js";
 
 export const BASE_ASSIGNMENT_BONUS = 0.4;
-export const BASE_MOOD_DRAIN_PER_HOUR = 7;
+// SpaceshipConst.basePhysicalStrengthCostRate (12) × RoomAttr.showRate (0.6).
+// The game's whole-percent display must not be used as the simulation rate.
+// Source/version: docs/reviews/morale-precision-2026-10-15.md
+export const BASE_MOOD_DRAIN_PER_HOUR = 7.2;
 export const BASE_MOOD_RECOVERY_PER_HOUR = 12;
 export const MOOD_MAX = 100;
 export const MANUFACTURING_RECIPES = {

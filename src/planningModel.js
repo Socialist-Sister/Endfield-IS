@@ -1,7 +1,7 @@
 import { BASE_MOOD_DRAIN_PER_HOUR, BASE_MOOD_RECOVERY_PER_HOUR, MOOD_MAX, DEFAULT_MANUFACTURING_RECIPES, manufacturingSkillCategory, sumSkillValue, summarizeOutputs } from "./scheduleModel.js";
 
 export const PLAN_ROOM_IDS = ["control", "reception", "manufacture-a", "manufacture-b", "growth"];
-export const PLAN_RULES = Object.freeze({ version: "hourly-ab-2026-10-15", resolutionMinutes: 60, singleResolutionMinutes: 30, warmupDays: 180, sampleDays: 90 });
+export const PLAN_RULES = Object.freeze({ version: "precise-morale-2026-10-15", resolutionMinutes: 60, singleResolutionMinutes: 30, warmupDays: 180, sampleDays: 90 });
 const EPS = 1e-7;
 export const modulo24 = (value) => ((value % 24) + 24) % 24;
 const finite = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;

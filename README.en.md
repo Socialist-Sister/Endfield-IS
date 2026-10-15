@@ -83,7 +83,7 @@ These previews show `v0.3.0`: a shared contour background, dark selected-operato
 
 ### Automatic
 
-Jointly recommend single-team staggering or AB rotation, operators, and timing per facility. Mixed plans are candidates; AB is not assumed to outperform single-team operation. AB changes occur on the hour. Prefer candidates whose crews sustain their entire shifts, then rank by long-run efficiency, preferring simpler setup for numerical ties. Normal single-team fatigue cycles and empty-shift downtime still count toward actual output. The search is heuristic, not a global-optimum guarantee.
+Jointly recommend single-team staggering or AB rotation, operators, and timing per facility. Mixed plans are candidates; AB is not assumed to outperform single-team operation. AB changes occur on the hour. Rank by long-run output after fatigue and downtime, allowing brief stops when they increase production. For numerical output ties, prefer less fatigue, higher coverage, then simpler setup. Normal single-team fatigue cycles and empty-shift downtime still count toward actual output. The search is heuristic, not a global-optimum guarantee.
 
 ### Manual
 
@@ -97,7 +97,7 @@ Set first-entry offsets for three single-team slots, or an AB start and A-team d
 
 | Item | Current Rule |
 |---|---|
-| Working morale drain | `7% per hour` |
+| Working morale drain | `7.2% per hour` |
 | Control Nexus recovery | Base `12% per hour`, multiplied by active recovery-skill modifiers |
 | Manufacturing / growth / reception efficiency | `(1 + 40% × active operators) × (1 + total matching skills)` |
 | Universal staffing bonus | Operators without matching room skills still provide 40% each |

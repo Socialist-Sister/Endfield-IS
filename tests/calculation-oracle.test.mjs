@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateStartupOffsets, evaluateShiftAssignments } from "../src/scheduleModel.js";
+import { evaluateStartupOffsets, evaluateShiftAssignments, BASE_MOOD_DRAIN_PER_HOUR, BASE_MOOD_RECOVERY_PER_HOUR } from "../src/scheduleModel.js";
 
 // Independent closed-form expectations: do not reuse productionFactor or model constants.
 const worker = (id, values = {}) => ({ id, activeSkills: Object.entries(values).map(([category, value]) => ({ category, activeTier: { value } })) });
@@ -9,18 +9,25 @@ const close = (actual, expected, tolerance = 1e-8) => assert.ok(Math.abs(actual 
 const afk = (team, options = {}) => evaluateStartupOffsets({ rooms: [manufacturing], assignments: { "manufacture-a": team }, offsetsByRoom: { "manufacture-a": [0, 0, 0] }, ...options });
 const shift = (teams, options = {}) => evaluateShiftAssignments({ rooms: [manufacturing], shiftAssignments: { "manufacture-a": teams }, loginTimes: ["00:00", "12:00"], ...options });
 
-test("one full AFK cycle matches the analytic 12/19 work fraction", () => {
-  const cycle = 100 / 7 + 100 / 12;
+test("morale rates preserve raw game-table precision rather than whole-percent UI values", () => {
+  // Pinned public table values and conversion: see morale-precision-2026-10-15.md.
+  close(BASE_MOOD_DRAIN_PER_HOUR,12*.6);
+  close(BASE_MOOD_RECOVERY_PER_HOUR,20*.6);
+  close(100/BASE_MOOD_DRAIN_PER_HOUR*3600,50000);
+});
+
+test("one full AFK cycle matches the analytic 5/8 work fraction", () => {
+  const cycle = 100 / 7.2 + 100 / 12;
   const result = afk([worker("a")], { warmupDays: 0, sampleDays: cycle * 20 / 24 });
-  close(result.rooms[manufacturing.id].coverageRate, 12 / 19);
-  close(result.rooms[manufacturing.id].averageFactor, 1.4 * 12 / 19);
-  close(result.cognitive, (24 * 1.4 * 12 / 19) / (220 / 9));
+  close(result.rooms[manufacturing.id].coverageRate, 5 / 8);
+  close(result.rooms[manufacturing.id].averageFactor, 1.4 * 5 / 8);
+  close(result.cognitive, (24 * 1.4 * 5 / 8) / (220 / 9));
 });
 
 test("synchronized reduction team adds reductions before multiplying production", () => {
-  const cycle = 100 / (7 * 0.7) + 100 / 12;
+  const cycle = 100 / (7.2 * 0.7) + 100 / 12;
   const result = afk([1, 2, 3].map((id) => worker(id, { "mood-drop": 10, "operator-exp": 20, "weapon-exp": 90 })), { warmupDays: 0, sampleDays: cycle * 20 / 24 });
-  const coverage = (100 / 4.9) / cycle;
+  const coverage = (100 / 5.04) / cycle;
   close(result.rooms[manufacturing.id].coverageRate, coverage);
   close(result.rooms[manufacturing.id].averageFactor, 2.2 * 1.6 * coverage);
 });
@@ -30,12 +37,12 @@ test("staggered AFK matches integration of independently constructed periodic in
   const bonuses = [0.1, 0.2, 0.3];
   const begin = 60 * 24;
   const end = 90 * 24;
-  const period = 100 / 7 + 100 / 12;
+  const period = 100 / 7.2 + 100 / 12;
   const intervals = offsets.map((offset) => {
     const periods = [];
     for (let k = 0; offset + k * period < end; k += 1) {
       const start = offset + k * period;
-      periods.push([start, start + 100 / 7]);
+      periods.push([start, start + 100 / 7.2]);
     }
     return periods;
   });
@@ -59,14 +66,14 @@ test("staggered AFK matches integration of independently constructed periodic in
 });
 
 test("Control Nexus recovery bonuses disappear when its synchronized staff rests", () => {
-  const period = 100 / 7 + 100 / 12;
+  const period = 100 / 7.2 + 100 / 12;
   const result = afk([worker("a")], {
     rooms: [manufacturing, { id: "control", type: "总控中枢" }],
     assignments: { "manufacture-a": [worker("a")], control: [worker("c", { "mood-regen": 50 })] },
     warmupDays: 0, sampleDays: period * 20 / 24,
   });
-  close(result.rooms[manufacturing.id].averageFactor, 1.4 * 12 / 19);
-  close(result.moodRecovery, 12 + 6 * 12 / 19);
+  close(result.rooms[manufacturing.id].averageFactor, 1.4 * 5 / 8);
+  close(result.moodRecovery, 12 + 6 * 5 / 8);
 });
 
 test("two distinct twelve-hour teams are fully recovered and sustain the exact staffed factor", () => {

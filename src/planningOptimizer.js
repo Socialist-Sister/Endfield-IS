@@ -1,5 +1,5 @@
 import { maximizeAssignment, prepareCandidate, optimizeAfkAssignments, summaryObjective } from "./assignmentOptimizer.js";
-import { optimizeStartupAxis, sumSkillValue, manufacturingSkillCategory } from "./scheduleModel.js";
+import { optimizeStartupAxis, sumSkillValue, manufacturingSkillCategory, BASE_MOOD_DRAIN_PER_HOUR, BASE_MOOD_RECOVERY_PER_HOUR, MOOD_MAX } from "./scheduleModel.js";
 import { normalizeRoomPlans, compilePlan, simulatePlan, evaluatePlan } from "./planningModel.js";
 
 const SEARCH = { warmupDays: 20, sampleDays: 10 };
@@ -17,8 +17,9 @@ function allocate(input, plans, moodWeight, singlePolicy = "plain") {
     const drop = sumSkillValue([op], "mood-drop");
     if (plan.kind === "single" && room.id !== "control" && ((singlePolicy === "plain" && drop > 0) || (singlePolicy === "mood" && drop === 0))) return -1e6;
     const duration = plan.kind === "single" ? 24 : gi === 0 ? plan.duration : 24 - plan.duration;
-    const drain = 7 * (1 - drop / 100);
-    const fraction = plan.kind === "single" ? 12 / (12 + drain) : Math.min(duration, 100 / drain, 24 * 12 / (12 + drain)) / 24;
+    const drain = BASE_MOOD_DRAIN_PER_HOUR * (1 - drop / 100);
+    const recovery = BASE_MOOD_RECOVERY_PER_HOUR;
+    const fraction = plan.kind === "single" ? recovery / (recovery + drain) : Math.min(duration, MOOD_MAX / drain, 24 * recovery / (recovery + drain)) / 24;
     if (room.id === "control") return sumSkillValue([op], "mood-regen") * 2.6 * fraction + 1e-4 * op.rarity;
     return ((index === 0 ? 100 : 0) + 40 + 2.2 * output + moodWeight * drop) * fraction + 1e-4 * op.rarity;
   }), ...slots.map(() => 0)]);
@@ -39,6 +40,14 @@ function legalSingle(teams, plans, rooms) {
 function signature(teams, plans, rooms) {
   return JSON.stringify(rooms.map((room) => [plans[room.id], teams[room.id].map((team) => team.map((op) => op.id))]));
 }
+// Score already includes actual downtime and continuous recovery. Fatigue is a
+// tie-breaker, never a feasibility gate or an extra production penalty.
+export function isBetterPlanCandidate(a, b) {
+  if (!b) return true;
+  if (Math.abs(a.score - b.score) > 1e-7) return a.score > b.score;
+  if (Math.abs(a.abFatigue - b.abFatigue) > 1e-7) return a.abFatigue < b.abFatigue;
+  return a.coverage > b.coverage + 1e-7;
+}
 export function optimizePlan(input, onProgress = () => {}) {
   const manual = input.mode === "manual";
   const ids = input.rooms.map((room) => room.id);
@@ -58,17 +67,7 @@ export function optimizePlan(input, onProgress = () => {}) {
     seen.set(key, candidate);
     return candidate;
   };
-  // Automatic AB crews must last through their assigned windows. Single-team
-  // fatigue cycles and empty shifts remain real candidates with actual output.
-  // Manual preserves the requested hours and reports any unavoidable fatigue.
-  const eligible = (candidate) => manual || candidate.abFatigue <= 1e-7;
-  const better = (a, b) => {
-    if (!b) return true;
-    if (eligible(a) !== eligible(b)) return eligible(a);
-    if (Math.abs(a.score - b.score) > 1e-7) return a.score > b.score;
-    if (Math.abs(a.abFatigue - b.abFatigue) > 1e-7) return a.abFatigue < b.abFatigue;
-    return a.coverage > b.coverage + 1e-7;
-  };
+  const better = isBetterPlanCandidate;
   const seeds = [];
   const add = (teams, plans) => seeds.push(evaluate(teams, plans));
   const maskCount = manual ? 1 : 2 ** ids.length;
@@ -90,13 +89,13 @@ export function optimizePlan(input, onProgress = () => {}) {
     seeds.push(legacy);
   }
   onProgress(40);
-  // Retain strong allocations that only need shorter shifts. Pruning them by
-  // fatigue before repairing their clocks would lose useful production teams.
+  // Explore shorter-shift alternatives alongside the original high-output
+  // allocations; both compete on actual production, including downtime.
   const repairs = manual ? [] : [...new Map([...seeds].sort((a, b) => b.score - a.score).map((seed) => [signature(seed.teams, seed.plans, input.rooms), seed])).values()].slice(0, 2).map((seed) => {
     const plans = clone(seed.plans);
     for (const id of seed.fatiguedRooms) plans[id].duration = 12;
     let repaired = evaluate(seed.teams, plans);
-    if (!eligible(repaired)) {
+    if (repaired.abFatigue > 1e-7) {
       const fallback = clone(plans);
       for (const id of ids) if (fallback[id].kind === "dual") fallback[id].duration = 12;
       repaired = evaluate(seed.teams, fallback);
@@ -104,7 +103,7 @@ export function optimizePlan(input, onProgress = () => {}) {
     return repaired;
   });
   seeds.sort((a, b) => better(a, b) ? -1 : better(b, a) ? 1 : 0);
-  const rankedSeeds = [...new Map(seeds.map((seed) => [signature(seed.teams, seed.plans, input.rooms), seed])).values()].slice(0, manual ? 2 : 1);
+  const rankedSeeds = [...new Map(seeds.map((seed) => [signature(seed.teams, seed.plans, input.rooms), seed])).values()].slice(0, manual ? 2 : 3);
   const uniqueSeeds = [...new Map([...rankedSeeds, ...repairs].map((seed) => [signature(seed.teams, seed.plans, input.rooms), seed])).values()];
   const finalists = [...uniqueSeeds];
   if (legacy) finalists.push(legacy);
@@ -174,13 +173,13 @@ export function optimizePlan(input, onProgress = () => {}) {
   const complexity = (candidate) => ids.reduce((sum, id) => sum + (candidate.plans[id].kind === "dual" ? 1 : new Set(candidate.plans[id].offsets.slice(0, candidate.teams[id][0].length)).size), 0);
   for (const seed of finalists) {
     const verified = evaluate(seed.teams, seed.plans, VERIFY);
-    if (eligible(verified) === eligible(winner) && Math.abs(verified.score - winner.score) <= 1e-7 && Math.abs(verified.abFatigue - winner.abFatigue) <= 1e-7 && Math.abs(verified.coverage - winner.coverage) <= 1e-7 && complexity(verified) < complexity(winner)) winner = verified;
+    if (Math.abs(verified.score - winner.score) <= 1e-7 && Math.abs(verified.abFatigue - winner.abFatigue) <= 1e-7 && Math.abs(verified.coverage - winner.coverage) <= 1e-7 && complexity(verified) < complexity(winner)) winner = verified;
   }
   const summary = evaluatePlan({ ...input, teams: winner.teams, roomPlans: winner.plans, ...VERIFY });
   summary.planning.evaluatedCandidates = seen.size;
   summary.planning.singleBaselineScore = legacy?.score ?? null;
   summary.planning.abFatigueHours = winner.abFatigue;
-  summary.planning.selectionPolicy = manual ? "fixed-times-output" : "sustainable-ab-output";
+  summary.planning.selectionPolicy = manual ? "fixed-times-output" : "long-run-output";
   summary.planning.score = summaryObjective(summary, input.rooms);
   onProgress(98);
   return { teams: winner.teams, roomPlans: winner.plans, summary };

@@ -38,8 +38,8 @@ test("Si reduces the entire active crew's mood drain and boosts only her staffed
   const [a,b]=OPERATORS.filter(o=>o.id!=="si").slice(0,2).map(o=>prepare(o,0));
   const result=evaluatePlan({rooms:[reception],teams:{reception:[[prepare(si),a],[b]]},roomPlans:{reception:{kind:"dual",start:0,duration:12}}});
   close(result.rooms.reception.averageFactor,(1.8*1.3+1.4)/2);
-  close(result.rooms.reception.groups[0].minMood,100-7*.82*12);
-  close(result.rooms.reception.groups[1].minMood,100-7*12);
+  close(result.rooms.reception.groups[0].minMood,100-7.2*.82*12);
+  close(result.rooms.reception.groups[1].minMood,100-7.2*12);
   close(result.rooms.reception.coverageRate,1);
 });
 
