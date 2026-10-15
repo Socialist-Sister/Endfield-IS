@@ -122,7 +122,7 @@ function normalizeRoomStats(accumulator, periodHours) {
   };
 }
 
-function summarizeOutputs(rooms, roomStats, moodRecovery, manufacturingRecipes, growthCategory, startup = null) {
+export function summarizeOutputs(rooms, roomStats, moodRecovery, manufacturingRecipes, growthCategory, startup = null) {
   const emptyStats = normalizeRoomStats(emptyRoomAccumulator(), 24);
   const receptionRoom = roomStats.reception ?? emptyStats;
   const growthRoom = roomStats.growth ?? emptyStats;

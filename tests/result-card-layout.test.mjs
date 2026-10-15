@@ -37,3 +37,13 @@ for (const mode of ["afk", "shift"]) {
     }
   }
 }
+
+for (const mode of ["auto", "manual"]) {
+  test(`${mode}: mixed room layouts use each room's own kind`, () => {
+    const single = { kind: "single", groups: Array.from({ length: 3 }, () => ({ members: [member] })) };
+    const dual = { kind: "dual", groups: Array.from({ length: 2 }, () => ({ members: [member, member, member] })) };
+    assert.deepEqual(layoutFacilityRow(mode, single, 1472, measure), layoutFacilityRow("afk", { groups: single.groups }, 1472, measure));
+    assert.deepEqual(layoutFacilityRow(mode, dual, 1472, measure), layoutFacilityRow("shift", { groups: dual.groups }, 1472, measure));
+    assert.ok(layoutFacilityRow(mode, dual, 1472, measure).height > layoutFacilityRow(mode, single, 1472, measure).height);
+  });
+}

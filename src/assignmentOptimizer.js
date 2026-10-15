@@ -56,7 +56,7 @@ function candidateWeight(candidate, room, manufacturingRecipes, growthCategory, 
 }
 
 // Rectangular Hungarian assignment: each slot receives at most one unique operator or dummy.
-function maximizeAssignment(weights) {
+export function maximizeAssignment(weights) {
   const rowCount = weights.length;
   const columnCount = weights[0]?.length ?? 0;
   if (!rowCount || !columnCount) return [];

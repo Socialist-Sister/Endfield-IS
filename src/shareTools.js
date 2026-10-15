@@ -1,7 +1,8 @@
+import { normalizeRoomPlans } from "./planningModel.js";
 import { layoutFacilityRow } from "./resultCardLayout.js";
 // Sharing stays client-only: configuration lives in the URL hash and result cards are drawn locally.
 export const CANONICAL_URL = "https://www.endfieldis.dpdns.org/";
-const SHARE_VERSION = 1;
+const SHARE_VERSION = 2;
 
 function encodeBase64Url(value) {
   const bytes = new TextEncoder().encode(value);
@@ -25,13 +26,12 @@ export function encodeSharedConfiguration(configuration) {
     .map((operatorId) => [operatorId, Number(configuration.promotions[operatorId])]);
   return encodeBase64Url(JSON.stringify({
     v: SHARE_VERSION,
-    m: configuration.mode === "shift" ? "s" : "a",
+    m: configuration.mode === "manual" ? "m" : "a",
     o: selected,
     p: promotions,
     r: [configuration.manufacturingRecipes?.["manufacture-a"], configuration.manufacturingRecipes?.["manufacture-b"]],
     g: configuration.growthCategory,
-    a: configuration.axisScope,
-    t: configuration.loginTimes,
+    b: configuration.mode === "manual" ? normalizeRoomPlans(configuration.roomPlans) : undefined,
   }));
 }
 
@@ -42,9 +42,21 @@ export function decodeSharedConfiguration(value) {
       : value;
     if (!encoded || encoded.length > 65536) return null;
     const payload = JSON.parse(decodeBase64Url(encoded));
-    if (payload.v !== SHARE_VERSION || !Array.isArray(payload.o)) return null;
+    if (![1, SHARE_VERSION].includes(payload.v) || !Array.isArray(payload.o)) return null;
+    let mode = payload.v === 2 && payload.m === "m" ? "manual" : "auto";
+    let roomPlans = normalizeRoomPlans(payload.b);
+    let migrationNotice;
+    if (payload.v === 1) {
+      const times = [...new Set((Array.isArray(payload.t) ? payload.t : []).filter((time) => typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/u.test(time)))].sort();
+      if (payload.m === "s" && times.length === 2) {
+        const clock = (value) => { const [h, m] = value.split(":").map(Number); return h + m / 60; };
+        mode = "manual";
+        roomPlans = normalizeRoomPlans(Object.fromEntries(Object.keys(roomPlans).map((id) => [id, { kind: "dual", start: clock(times[0]), duration: clock(times[1]) - clock(times[0]) }])));
+        migrationNotice = "旧倒班时间已转换为所有舱室的 AB 时段，并对齐半小时；请核对后重新计算。";
+      } else migrationNotice = payload.m === "s" ? "旧多班次配置已转为自动方案；干员和配方保留，原上线时间不再使用。" : "旧挂机配置已转为自动方案；干员和配方保留，将重新比较单班和双班。";
+    }
     return {
-      mode: payload.m === "s" ? "shift" : "afk",
+      mode,
       selected: payload.o,
       promotions: Object.fromEntries(Array.isArray(payload.p) ? payload.p : []),
       manufacturingRecipes: {
@@ -52,8 +64,8 @@ export function decodeSharedConfiguration(value) {
         "manufacture-b": payload.r?.[1],
       },
       growthCategory: payload.g,
-      axisScope: payload.a,
-      loginTimes: Array.isArray(payload.t) ? payload.t : [],
+      roomPlans,
+      ...(migrationNotice ? { migrationNotice } : {}),
     };
   } catch {
     return null;
@@ -247,7 +259,7 @@ function drawFacilityRow(context, row, x, y, width, height, mode, images, layout
     const groupLayout = layout.groups[groupIndex];
     const groupX = x + groupLayout.x;
     const groupWidth = groupLayout.width;
-    if (mode === "afk") {
+    if ((row.kind ?? mode) === "single" || mode === "afk") {
       context.fillStyle = EXPORT_COLORS.ink;
       context.fillRect(groupX, y + 14, groupWidth, 29);
       context.fillStyle = EXPORT_COLORS.yellowDark;
@@ -276,7 +288,8 @@ function drawFacilityRow(context, row, x, y, width, height, mode, images, layout
     context.fillRect(groupX, y, groupWidth, 48);
     context.fillStyle = EXPORT_COLORS.muted;
     context.font = '700 12px "Microsoft YaHei UI", sans-serif';
-    drawText(context, group.label, groupX + 13, y + 17, groupWidth - 26);
+    drawText(context, group.label, groupX + 13, y + 10, groupWidth - 26);
+    if (group.note) { context.font = '500 11px "Microsoft YaHei UI", sans-serif'; drawText(context, group.note, groupX + 13, y + 29, groupWidth - 26); }
     const members = group.members ?? [];
     if (!members.length) {
       context.fillStyle = EXPORT_COLORS.muted;
@@ -364,14 +377,14 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   context.fillText("SCHEDULE EXPORT", metaX + 24, headerY + 25);
   context.fillStyle = EXPORT_COLORS.yellow;
   context.font = '800 18px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
-  context.fillText(mode === "afk" ? "长期挂机方案" : "固定上线倒班方案", metaX + 24, headerY + 50);
+  context.fillText(mode === "manual" ? "手动时段 · 算法配人" : "自动推荐 · 单双班比较", metaX + 24, headerY + 50);
   const now = new Date();
   const exportDate = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
     .map((part, index) => index ? String(part).padStart(2, "0") : String(part))
     .join(".");
   context.fillStyle = EXPORT_COLORS.quiet;
   context.font = '700 14px Bahnschrift, sans-serif';
-  context.fillText(exportDate, metaX + 24, headerY + 84);
+  context.fillText(`${exportDate} · 前瞻机制预览`, metaX + 24, headerY + 84);
 
   const metrics = [
     { label: "高级认知载体", value: summary.cognitive.toFixed(1) },
@@ -421,7 +434,7 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
   context.fillText("ASSIGNMENT PLAN", margin + 22, sectionY + 11);
   context.fillStyle = EXPORT_COLORS.ink;
   context.font = '800 18px "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
-  context.fillText(mode === "afk" ? "算法推荐启动轴" : "按上线节点进行整组换班", margin + 22, sectionY + 30);
+  context.fillText("按舱室设置班组与时段 · UTC+8", margin + 22, sectionY + 30);
 
   let rowY = rowsY;
   rows.forEach((row, index) => {

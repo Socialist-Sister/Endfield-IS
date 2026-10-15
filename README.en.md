@@ -4,7 +4,7 @@
 
 **Dijiang Infrastructure Shift Calculator for _Arknights: Endfield_**
 
-Estimate long-run AFK or fixed-login schedules from operators, promotion levels, production recipes, and login times.
+Compare staggered single-team, AB rotation, and mixed schedules automatically, or set each facility’s timing manually.
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -15,13 +15,13 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
 [![Operators](https://img.shields.io/badge/Operators-31-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
 
-<kbd>AFK Solver</kbd> <kbd>Fixed Rotation</kbd> <kbd>Morale Simulation</kbd> <kbd>Production Estimate</kbd>
+<kbd>Automatic / Manual</kbd> <kbd>Single / AB Rotation</kbd> <kbd>Morale Simulation</kbd> <kbd>Production Estimate</kbd>
 
 </div>
 
 ---
 
-> Endfield-IS is an unofficial infrastructure calculator for the Dijiang. Operator ownership, promotion levels, production targets, and login times are entered manually; the project does not read, detect, or control the game client.
+> Endfield-IS is an unofficial infrastructure calculator for the Dijiang. Operator ownership, promotion levels, production targets, and optional per-facility timing are entered manually; the project does not read, detect, or control the game client.
 
 ## Contents
 
@@ -45,9 +45,9 @@ Estimate long-run AFK or fixed-login schedules from operators, promotion levels,
 
 ### Basic Workflow
 
-1. Choose **Long-run AFK** or **Fixed-login Rotation**.
+1. Choose **Automatic** (recommend operating kinds, people and times) or **Manual** (fix per-facility kinds and times, then assign people).
 2. Set a fixed recipe for each manufacturing cabin, a growth-material category, and the scheduling parameters.
-3. Select owned operators and adjust their E0–E4 promotion levels. Every operator defaults to E4, while the roster starts unselected.
+3. Select at least one owned operator and adjust their E0–E4 promotion levels. Every operator defaults to E4, while the roster starts unselected.
 4. Run the solver and review per-facility assignments, startup timing, skill activation, and estimated daily output.
 5. Copy a link to the current configuration or export the calculated schedule as a branded image.
 
@@ -81,18 +81,15 @@ These previews show `v0.3.0`: a shared contour background, dark selected-operato
 
 ## Scheduling Modes
 
-### Long-run AFK
+### Automatic
 
-Simulates Dijiang's automatic duty cycle: an operator leaves at zero morale and returns after recovering to full. The solver searches real startup offsets in 30-minute steps, then compares stable-cycle daily output after a long warm-up.
+Jointly recommend single-team staggering or AB rotation, operators, and timing per facility. Mixed plans are candidates; AB is not assumed to outperform single-team operation. Rank by long-run efficiency, preferring simpler setup for numerical ties. The search is heuristic, not a global-optimum guarantee.
 
-| Search Scope | Description |
-|---|---|
-| Unified startup axis | Every facility shares one startup timeline for simpler execution |
-| Per-facility startup axes | Facilities search independently and use separate axes only when verified output beats the unified baseline |
+### Manual
 
-### Fixed-login Rotation
+Set first-entry offsets for three single-team slots, or an AB start and A-team duration per facility; B fills the remaining day. Supports midnight crossing, half-hour resolution, and apply-to-all. The solver assigns people under those fixed constraints. AB times use UTC+8 and are independent of player login times.
 
-The user enters daily login times, and each node performs a full-team replacement. Morale is tracked continuously across shifts and days; operator reuse or deliberate downtime is accepted only when it improves verified long-run output.
+> **Preview adaptation for the rotation system.** Independent facility settings, exclusive operator presets, empty-shift downtime, and existing exhaustion/rest/full-morale-return behavior are provisional until verified in game. AB members only return during their active shift. The v0.3.0 screenshots above illustrate the established visual style; use the current app for the updated planning modes.
 
 ---
 
@@ -110,7 +107,7 @@ The user enters daily login times, and each node performs a full-team replacemen
 | Unstaffed facilities | Treated as downtime; idle production, batch collection, and manual assistance are excluded |
 | Specific-clue skills | Qualitative L1/L2 tendencies only; identical effects do not stack and no fixed daily clue count is invented |
 
-Each manufacturing cabin keeps its selected recipe fixed. Daily output is aggregated when both cabins choose the same recipe. Outside the Control Nexus, AFK teams never mix morale-consumption-reduction operators with ordinary operators, preventing duty-cycle drift.
+Each manufacturing cabin keeps its selected recipe fixed. Daily output is aggregated when both cabins choose the same recipe. Outside the Control Nexus, staggered single teams never mix morale-consumption-reduction operators with ordinary operators, preventing duty-cycle drift.
 
 > Formulas and morale cycles have been cross-checked against independent closed-form solutions; absolute in-game yields are not fully verified. Manufacturing duration/batch interpretation, varying growth-item durations, and the base clue period remain limitations. See the [v0.2.0 calculation audit](docs/reviews/calculation-v0.2.0.md) (Chinese).
 
@@ -137,7 +134,7 @@ Browser assets are written to `dist/client`. The build also creates `dist/server
 
 Tests cover stable startup cycles, continuous morale, room-specific skills and unique assignments, small rosters, fixed recipes, clipboard failure handling, and wrapped text with dynamic export layouts.
 
-Run `npm run benchmark` to record timing and outputs for the full E4 roster using shared axes, per-facility axes, and fixed shifts. Timing varies by device. Reusing equivalent AFK axis evaluations reduced default-configuration runtime by about 58%–65% on the tested machine while preserving results; see the [performance review](docs/reviews/performance-2026-09-06.md).
+Run `npm run benchmark` to compare full-E4 Automatic and fixed-AB Manual timing and output. Short-window candidate searches are followed by 180 warmup days and 90 sampling days for finalists. The former shared-axis single-team recommendation remains an Automatic baseline. See the [historical performance review](docs/reviews/performance-2026-09-06.md).
 
 ### Technology
 

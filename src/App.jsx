@@ -5,6 +5,8 @@ import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { Calculator } from "@phosphor-icons/react/dist/csr/Calculator";
 import SelectField from "./SelectField.jsx";
+import PlanEditor, { PlanTimeline } from "./PlanEditor.jsx";
+import { normalizeRoomPlans, planWindow } from "./planningModel.js";
 import { ChartLineUp } from "@phosphor-icons/react/dist/csr/ChartLineUp";
 import { Check } from "@phosphor-icons/react/dist/csr/Check";
 import { ClockCounterClockwise } from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
@@ -19,16 +21,13 @@ import { Hexagon } from "@phosphor-icons/react/dist/csr/Hexagon";
 import { Info } from "@phosphor-icons/react/dist/csr/Info";
 import { LinkSimple } from "@phosphor-icons/react/dist/csr/LinkSimple";
 import { MagnifyingGlass } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
-import { Plus } from "@phosphor-icons/react/dist/csr/Plus";
 import { SlidersHorizontal } from "@phosphor-icons/react/dist/csr/SlidersHorizontal";
 import { Square } from "@phosphor-icons/react/dist/csr/Square";
 import { Star } from "@phosphor-icons/react/dist/csr/Star";
 import { Target } from "@phosphor-icons/react/dist/csr/Target";
-import { Trash } from "@phosphor-icons/react/dist/csr/Trash";
 import { Triangle } from "@phosphor-icons/react/dist/csr/Triangle";
 import { FACILITIES, OPERATORS, getOperatorSkillSummary } from "./operatorData.js";
 import {
-  AXIS_SCOPES,
   DEFAULT_MANUFACTURING_RECIPES,
   MANUFACTURING_RECIPES,
   manufacturingRecipeId,
@@ -77,18 +76,16 @@ function readSharedConfiguration() {
     const recipeId = shared.manufacturingRecipes?.[roomId];
     return [roomId, RECIPE_IDS.has(recipeId) ? recipeId : defaultRecipes[roomId]];
   }));
-  const loginTimes = [...new Set(shared.loginTimes.filter((time) => typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/u.test(time)))].sort();
   return {
-    mode: shared.mode === "shift" ? "shift" : "afk",
+    mode: shared.mode === "manual" ? "manual" : "auto",
     selected,
     promotions,
     manufacturingRecipes,
     growthCategory: GROWTH_IDS.has(shared.growthCategory) ? shared.growthCategory : "rare-mineral",
-    axisScope: typeof shared.axisScope === "string" && Object.hasOwn(AXIS_SCOPES, shared.axisScope) ? shared.axisScope : "shared",
-    loginTimes,
+    roomPlans: normalizeRoomPlans(shared.roomPlans),
+    migrationNotice: shared.migrationNotice,
   };
 }
-const emptyAssignments = () => Object.fromEntries(ROOM_META.map((room) => [room.id, []]));
 const emptyShiftAssignments = (shiftCount) => Object.fromEntries(ROOM_META.map((room) => [room.id, Array.from({ length: shiftCount }, () => [])]));
 function getRoomRecipe(room, manufacturingRecipes, growthCategory, summary) {
   if (room.type === "制造舱") {
@@ -195,7 +192,7 @@ export function App() {
   const dismissTimerRef = useRef(null);
   const navigationTimerRef = useRef(null);
   const exportingRef = useRef(false);
-  const [mode, setMode] = useState(sharedConfiguration?.mode ?? "afk");
+  const [mode, setMode] = useState(sharedConfiguration?.mode ?? "auto");
   const [activeSection, setActiveSection] = useState("config");
   const [selected, setSelected] = useState(sharedConfiguration?.selected ?? INITIAL_SELECTED);
   const [promotions, setPromotions] = useState(() => sharedConfiguration?.promotions ?? Object.fromEntries(OPERATORS.map((operator) => [operator.id, 4])));
@@ -203,15 +200,12 @@ export function App() {
   const [facilityFilter, setFacilityFilter] = useState("all");
   const [manufacturingRecipes, setManufacturingRecipes] = useState(() => sharedConfiguration?.manufacturingRecipes ?? ({ ...DEFAULT_MANUFACTURING_RECIPES }));
   const [growthCategory, setGrowthCategory] = useState(sharedConfiguration?.growthCategory ?? "rare-mineral");
-  const [axisScope, setAxisScope] = useState(sharedConfiguration?.axisScope ?? "shared");
-  const [loginTimes, setLoginTimes] = useState(sharedConfiguration?.loginTimes ?? ["08:00", "22:30"]);
-  const [newTime, setNewTime] = useState("13:00");
+  const [roomPlans, setRoomPlans] = useState(() => normalizeRoomPlans(sharedConfiguration?.roomPlans));
   const [calculated, setCalculated] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [calculationError, setCalculationError] = useState("");
   const [dailySummary, setDailySummary] = useState(null);
-  const [assignments, setAssignments] = useState(emptyAssignments);
   const [shiftAssignments, setShiftAssignments] = useState(() => emptyShiftAssignments(2));
   const [lastResultInputs, setLastResultInputs] = useState(null);
   const [utilityNotice, setUtilityNotice] = useState("");
@@ -227,16 +221,13 @@ export function App() {
     });
   }, [facilityFilter, operatorSearch]);
 
-  const canCalculate = selected.length >= 3 && (mode === "afk" || loginTimes.length > 0);
+  const canCalculate = selected.length >= 1;
   const allOperatorsSelected = selected.length === OPERATORS.length;
-  const calculationHint = calculationError || (!canCalculate
-    ? (selected.length < 3 ? "至少选择 3 名干员" : "至少添加 1 个上线时间")
-    : mode === "afk" ? `将自动搜索${AXIS_SCOPES[axisScope].label}` : "条件已就绪，可以生成排班");
+  const calculationHint = calculationError || (!canCalculate ? "至少选择 1 名干员" : mode === "auto" ? "比较单班错峰、AB 双班与混合安排" : "按各舱室指定时段推荐人员");
   const resultMode = lastResultInputs?.mode ?? mode;
   const resultManufacturingRecipes = lastResultInputs?.manufacturingRecipes ?? manufacturingRecipes;
   const resultGrowthCategory = lastResultInputs?.growthCategory ?? growthCategory;
-  const resultLoginTimes = lastResultInputs?.loginTimes ?? loginTimes;
-  const resultAxisScope = lastResultInputs?.axisScope ?? axisScope;
+  const resultRoomPlans = dailySummary?.planning?.roomPlans ?? roomPlans;
 
   useEffect(() => () => {
     stopCalculation();
@@ -288,14 +279,8 @@ export function App() {
     setManufacturingRecipes((current) => ({ ...current, [roomId]: recipeId }));
     invalidate();
   }
-  function addTime() {
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/u.test(newTime)) { showUtilityNotice("请输入有效的上线时间"); return; }
-    if (loginTimes.includes(newTime)) { showUtilityNotice("该上线时间已添加"); return; }
-    setLoginTimes((current) => [...current, newTime].sort());
-    invalidate();
-  }
   async function copyConfigurationLink() {
-    const url = buildConfigurationShareUrl({ mode, selected, promotions, manufacturingRecipes, growthCategory, axisScope, loginTimes });
+    const url = buildConfigurationShareUrl({ mode, selected, promotions, manufacturingRecipes, growthCategory, roomPlans }, import.meta.env.DEV ? window.location.origin + window.location.pathname : undefined);
     try {
       await copyText(url);
       setShareFallback("");
@@ -311,7 +296,8 @@ export function App() {
     setExporting(true);
     try {
       const rows = RESULT_ROOM_META.flatMap((room) => {
-        const roomOperators = assignments[room.id] ?? [];
+        const roomOperators = shiftAssignments[room.id]?.[0] ?? [];
+        const plan = resultRoomPlans[room.id];
         const roomSummary = dailySummary.rooms[room.id];
         const memberData = (operator, team) => ({
           name: operator.name,
@@ -331,16 +317,17 @@ export function App() {
         const stat = room.id === "control"
           ? ""
           : `产效 ${(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 ${(roomSummary.coverageRate * 100).toFixed(0)}%`;
-        const groups = resultMode === "afk"
+        const groups = plan.kind === "single"
           ? roomOperators.map((operator, operatorIndex) => ({
-            offset: dailySummary.startup.offsetsByRoom[room.id]?.[operatorIndex] ?? 0,
+            offset: plan.offsets[operatorIndex] ?? 0,
             members: [memberData(operator, roomOperators)],
           })).sort((left, right) => left.offset - right.offset).map((group) => ({
             label: `T ${formatStartOffsetLabel(group.offset)}`,
             members: group.members,
           }))
           : (shiftAssignments[room.id] ?? []).map((team, shiftIndex) => ({
-            label: `班次 ${String(shiftIndex + 1).padStart(2, "0")} · ${resultLoginTimes[shiftIndex]}`,
+            label: `${shiftIndex === 0 ? "A" : "B"} 组 · ${planWindow(plan, shiftIndex).label}`,
+            note: `${planWindow(plan, shiftIndex).duration} 小时${roomSummary.groups[shiftIndex].fatigueHours > 0.01 ? ` · 班内疲劳 ${roomSummary.groups[shiftIndex].fatigueHours.toFixed(2)}h/日` : ""}`,
             members: team.map((operator) => memberData(operator, team)),
           }));
         const chunks = [];
@@ -350,6 +337,7 @@ export function App() {
           meta: getRoomRecipe(room, resultManufacturingRecipes, resultGrowthCategory, dailySummary),
           stat,
           groups: groupChunk,
+          kind: plan.kind,
         }));
       });
       await downloadResultCard({
@@ -379,8 +367,7 @@ export function App() {
       promotions: { ...promotions },
       manufacturingRecipes: { ...manufacturingRecipes },
       growthCategory,
-      loginTimes: [...loginTimes],
-      axisScope,
+      roomPlans: structuredClone(roomPlans),
     };
     let worker;
     try {
@@ -393,7 +380,7 @@ export function App() {
     }
     workerRef.current = worker;
     const startedAt = performance.now();
-    const expectedDuration = calculationRequest.mode === "shift" ? 1200 : calculationRequest.axisScope === "facility" ? 33000 : 13000;
+    const expectedDuration = calculationRequest.mode === "manual" ? 6000 : 35000;
     progressTimerRef.current = window.setInterval(() => {
       const elapsedFraction = (performance.now() - startedAt) / expectedDuration;
       setProgress((current) => Math.max(current, Math.min(92, 4 + (elapsedFraction * 86))));
@@ -404,17 +391,18 @@ export function App() {
         setProgress((current) => Math.max(current, data.value));
         return;
       }
+      if (data.type === "error") {
+        stopCalculation(); setBusy(false); setProgress(0); setCalculationError(`计算未完成：${data.message}`); return;
+      }
       if (data.type !== "result") return;
       stopCalculation();
-      setAssignments(data.assignments);
-      setShiftAssignments(data.shiftAssignments);
+      setShiftAssignments(data.teams);
       setDailySummary(data.summary);
       setLastResultInputs({
         mode: calculationRequest.mode,
         manufacturingRecipes: calculationRequest.manufacturingRecipes,
         growthCategory: calculationRequest.growthCategory,
-        loginTimes: calculationRequest.loginTimes,
-        axisScope: calculationRequest.axisScope,
+        roomPlans: calculationRequest.roomPlans,
       });
       setCalculated(true);
       setProgress(100);
@@ -466,7 +454,7 @@ export function App() {
             <PageHeading index="01" title="基建配置" description="选择策略、产出与干员" backdrop="CONFIGURATION">
               <div className="page-heading__actions">
                 <button className="page-heading__action page-heading__action--secondary" onClick={copyConfigurationLink}><LinkSimple size={20} weight="bold" />复制配置链接</button>
-                <button className="page-heading__action page-heading__action--forward" onClick={calculate} aria-describedby={!canCalculate || calculationError ? "calculation-hint" : undefined} disabled={busy || !canCalculate} title={calculationHint} aria-label={`生成排班结果。${calculationHint}`}><Calculator size={21} weight="fill" />{busy ? (mode === "afk" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button>
+                <button className="page-heading__action page-heading__action--forward" onClick={calculate} aria-describedby={!canCalculate || calculationError ? "calculation-hint" : undefined} disabled={busy || !canCalculate} title={calculationHint} aria-label={`生成排班结果。${calculationHint}`}><Calculator size={21} weight="fill" />{busy ? (mode === "auto" ? "正在搜索启动轴…" : "正在计算…") : "生成排班结果"}{!busy && <ArrowRight size={20} weight="bold" />}</button>
               </div>
             </PageHeading>
 
@@ -479,8 +467,8 @@ export function App() {
                 <fieldset className="field-group">
                   <legend>排班策略</legend>
                   <div className="mode-switch">
-                    <button aria-pressed={mode === "afk"} className={mode === "afk" ? "is-active" : ""} onClick={() => { setMode("afk"); invalidate(); }}><ArrowsClockwise size={19} weight="bold" /><span><strong>挂机方案</strong><small>长期平均收益</small></span></button>
-                    <button aria-pressed={mode === "shift"} className={mode === "shift" ? "is-active" : ""} onClick={() => { setMode("shift"); invalidate(); }}><ClockCounterClockwise size={19} weight="bold" /><span><strong>定点倒班</strong><small>按上线时间换人</small></span></button>
+                    <button aria-pressed={mode === "auto"} className={mode === "auto" ? "is-active" : ""} onClick={() => { setMode("auto"); invalidate(); }}><ArrowsClockwise size={19} weight="bold" /><span><strong>自动方案</strong><small>推荐方式与时间</small></span></button>
+                    <button aria-pressed={mode === "manual"} className={mode === "manual" ? "is-active" : ""} onClick={() => { setMode("manual"); invalidate(); }}><ClockCounterClockwise size={19} weight="bold" /><span><strong>手动方案</strong><small>指定时间后配人</small></span></button>
                   </div>
                 </fieldset>
                 <fieldset className="field-group">
@@ -495,26 +483,10 @@ export function App() {
                   <legend><Cube size={16} aria-hidden="true" />培养舱Ⅰ</legend>
                   <div className="select-wrap"><SelectField label="培养对象" tone="dark" value={growthCategory} onChange={(value) => { setGrowthCategory(value); invalidate(); }} options={Object.entries(GROWTH_OPTIONS).map(([value, option]) => ({ value, label: option.label }))} /></div>
                 </fieldset>
-                {mode === "afk" && (
-                  <fieldset className="field-group field-group--cadence">
-                    <legend>启动轴求解范围</legend>
-                    <div className="cadence-switch">
-                      <button aria-pressed={axisScope === "shared"} className={axisScope === "shared" ? "is-active" : ""} onClick={() => { setAxisScope("shared"); invalidate(); }}>
-                        <span><strong>统一启动轴</strong><small>所有设施使用同一组时间，容易照着执行</small></span><em>简洁</em>
-                      </button>
-                      <button aria-pressed={axisScope === "facility"} className={axisScope === "facility" ? "is-active" : ""} onClick={() => { setAxisScope("facility"); invalidate(); }}>
-                        <span><strong>分设施启动轴</strong><small>每个设施分别搜索，优先长期产出</small></span><em>精细</em>
-                      </button>
-                    </div>
-                  </fieldset>
-                )}
-                {mode === "shift" && (
-                  <fieldset className="field-group field-group--times">
-                    <legend>每日上线时间</legend>
-                    <div className="time-list">{loginTimes.map((time) => <span className="time-chip" key={time}>{time}<button aria-label={`移除 ${time}`} onClick={() => { setLoginTimes((current) => current.filter((item) => item !== time)); invalidate(); }}><Trash size={14} weight="bold" /></button></span>)}</div>
-                    <div className="time-add"><input aria-label="新增上线时间" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} /><button onClick={addTime}><Plus size={16} weight="bold" />添加</button></div>
-                  </fieldset>
-                )}
+                {mode === "auto" ? <div className="plan-auto-copy"><strong>让算法比较每个舱室</strong><p>单班错峰、AB 双班或混合安排，按长期产出推荐。人数不足时允许空班与不满编。</p></div> : <PlanEditor rooms={RESULT_ROOM_META} plans={roomPlans} onChange={(value) => { setRoomPlans(value); invalidate(); }} />}
+                <p className="plan-preview-note">前瞻机制预览 · 具体规则见“关于”的模拟口径。</p>
+                {sharedConfiguration?.migrationNotice && <p className="plan-migration-note" role="status">{sharedConfiguration.migrationNotice}</p>}
+
               </div>
 
               <section className="field-group field-group--operators" aria-labelledby="operator-section-title">
@@ -554,7 +526,7 @@ export function App() {
 
           {activeSection === "result" && calculated && (
           <section className="result-panel page-enter" aria-live="polite" ref={resultRef} tabIndex={-1}>
-            <PageHeading index="02" title="计算结果" description={resultMode === "afk" ? "长期挂机推荐" : "固定上线倒班推荐"} backdrop="RESULT">
+            <PageHeading index="02" title="计算结果" description={resultMode === "auto" ? "自动推荐 · 比较单班与双班" : "手动时段 · 算法推荐人员"} backdrop="RESULT">
               <div className="page-heading__actions">
                 <button className="page-heading__action page-heading__action--secondary" onClick={exportResultImage} disabled={exporting} aria-busy={exporting}><DownloadSimple size={20} weight="bold" />{exporting ? "正在生成排班图…" : "导出排班图"}</button>
                 <button className="page-heading__action page-heading__action--back" onClick={() => goToSection("config", configRef)}><ArrowLeft size={20} weight="bold" />修改配置</button>
@@ -574,23 +546,37 @@ export function App() {
               <div><span>平均停产</span><strong>{dailySummary.averageDowntime.toFixed(2)}h</strong><small>每设施每日</small></div>
             </div>
             <section className="timeline-section">
-              <div className="section-label-row"><div><span>ASSIGNMENT PLAN</span><h3>{resultMode === "afk" ? "算法推荐启动轴" : "按上线节点进行整组换班"}</h3></div><span className="mode-badge">{resultMode === "afk" ? AXIS_SCOPES[resultAxisScope].shortLabel : `每日 ${resultLoginTimes.length} 次`}</span></div>
-              <div className={`assignment-board ${resultMode === "shift" ? "assignment-board--shifts" : "assignment-board--afk"}`}>
+              <div className="section-label-row"><div><span>ASSIGNMENT PLAN</span><h3>按舱室设置人员与时段</h3></div><button className="plan-adjust" onClick={() => { setMode("manual"); setRoomPlans(structuredClone(resultRoomPlans)); invalidate(); goToSection("config", configRef); }}>调整此方案</button></div>
+              <p className="plan-result-note">前瞻机制预览 · AB 时刻为 UTC+8；单班 T 为首次进驻的相对时间。按现有疲劳离岗、满心情返岗规则估算。</p>
+              <div className="assignment-board assignment-board--planning">
+
                 {RESULT_ROOM_META.map((room, roomIndex) => {
-                  const roomOperators = assignments[room.id];
+                  const roomOperators = shiftAssignments[room.id]?.[0] ?? [];
+                  const plan = resultRoomPlans[room.id];
                   const roomSummary = dailySummary.rooms[room.id];
-                  const startOffsets = resultMode === "afk" ? (dailySummary.startup.offsetsByRoom[room.id] ?? []) : [];
+                  const startOffsets = plan.kind === "single" ? plan.offsets : [];
                   const scheduledOperators = roomOperators
                     .map((operator, operatorIndex) => ({ operator, startOffset: startOffsets[operatorIndex] ?? 0, operatorIndex }))
                     .sort((left, right) => left.startOffset - right.startOffset || left.operatorIndex - right.operatorIndex);
                   return (
                     <article className="facility-lane" key={room.id}>
-                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><small>{getRoomRecipe(room, resultManufacturingRecipes, resultGrowthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}</span></div>
-                      {resultMode === "afk" ? (
+                      <div className="facility-name"><Factory size={22} weight="fill" /><span><strong>{room.name}</strong><span className="plan-kind-label">{plan.kind === "single" ? "单班错峰" : "AB 双班"}</span><small>{getRoomRecipe(room, resultManufacturingRecipes, resultGrowthCategory, dailySummary)}</small>{room.id !== "control" && <em>产效 {(roomSummary.averageFactor * 100).toFixed(0)}% · 覆盖 {(roomSummary.coverageRate * 100).toFixed(0)}%</em>}</span></div>
+                      {plan.kind === "single" ? (
                         <div className="lane-assignments">{scheduledOperators.length ? scheduledOperators.map(({ operator, startOffset }, index) => <div className="assignment-slot" key={operator.id}><div className="assignment-time" aria-label={formatStartOffset(startOffset)} title={formatStartOffset(startOffset)}>{formatStartOffsetLabel(startOffset)}</div><div className="assignment-cell" style={{ "--delay": `${index * 55 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={resultManufacturingRecipes} growthCategory={resultGrowthCategory} team={roomOperators} /></span></div></div>) : <div className="empty-lane">当前干员数量不足</div>}</div>
                       ) : (
-                        <div className="lane-assignments lane-assignments--shifts" style={{ "--shift-count": resultLoginTimes.length }}>
-                          {(shiftAssignments[room.id] ?? []).map((shiftOperators, shiftIndex) => <section className="shift-block" key={`${room.id}-${resultLoginTimes[shiftIndex]}`}><header className="shift-block__header"><span>班次 {String(shiftIndex + 1).padStart(2, "0")}</span><strong>{resultLoginTimes[shiftIndex]}</strong></header><div className="shift-operators">{shiftOperators.length ? shiftOperators.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={`${operator.id}-${shiftIndex}`} style={{ "--delay": `${index * 45 + shiftIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={resultManufacturingRecipes} growthCategory={resultGrowthCategory} team={shiftOperators} /></span></div>) : <div className="empty-lane">本班保留空位</div>}</div></section>)}
+                        <div className="plan-dual-result">
+                          <PlanTimeline plan={plan} />
+                          <div className="lane-assignments lane-assignments--shifts" style={{ "--shift-count": 2 }}>
+                            {(shiftAssignments[room.id] ?? [[], []]).map((team, groupIndex) => {
+                              const window = planWindow(plan, groupIndex);
+                              const health = roomSummary.groups[groupIndex];
+                              return <section className="shift-block" key={`${room.id}-${groupIndex}`}>
+                                <header className="shift-block__header"><span>{groupIndex === 0 ? "A" : "B"} 组 · {window.duration} 小时</span><strong>{window.label}</strong></header>
+                                <div className="shift-operators">{team.length ? team.map((operator, index) => <div className="assignment-cell assignment-cell--compact" key={operator.id} style={{ "--delay": `${index * 45 + groupIndex * 80 + roomIndex * 35}ms` }}><OperatorMark operator={operator} /><span><strong>{operator.name}</strong><AssignmentSkills operator={operator} room={room} manufacturingRecipes={resultManufacturingRecipes} growthCategory={resultGrowthCategory} team={team} /></span></div>) : <div className="empty-lane">本班无人 · 不产生收益</div>}</div>
+                                {health.fatigueHours > 0.01 && <p className="plan-fatigue">班内疲劳约 {health.fatigueHours.toFixed(2)} 小时/日</p>}
+                              </section>;
+                            })}
+                          </div>
                         </div>
                       )}
                     </article>
@@ -609,7 +595,7 @@ export function App() {
             </header>
 
             <div className="about-intro">
-              <p>帝江排班计算器根据手动选择的干员、练度与生产目标，比较长期挂机和定点倒班的稳定周期收益，并给出可直接照做的排班。计算允许出现停产；只有停产后的长期日产量确实更高时，才会采用该方案。</p>
+              <p>帝江排班计算器根据手动选择的干员、练度与生产目标，比较单班错峰、AB 双班及混合安排的稳定周期收益，并给出可直接照做的排班。计算允许出现停产；只有停产后的长期日产量确实更高时，才会采用该方案。</p>
             </div>
 
             <div className="about-grid">
@@ -617,8 +603,8 @@ export function App() {
                 <span className="about-section__code">MODE</span>
                 <h3>两种排班模式</h3>
                 <dl className="about-definitions">
-                  <div><dt>挂机方案</dt><dd>从满心情开始，干员心情归零后自动下班，恢复满后自动返岗；算法搜索错峰进驻时间，以长期日产量选择启动轴。</dd></div>
-                  <div><dt>定点倒班</dt><dd>每个上线时间都是一次整组换班；干员心情跨班次、跨天连续继承，不会在接班时重置为满值。</dd></div>
+                  <div><dt>自动方案</dt><dd>算法联合推荐各舱室的单班/双班方式、人员和时段。允许空班与不满编，以长期产出比较候选，数值持平时优先易于设置的方案，不保证全局最优。</dd></div>
+                  <div><dt>手动方案</dt><dd>逐舱室指定单班启动偏移或 AB 时段，算法按这些约束推荐人员。AB 每天重复执行，不依赖玩家上线时间；接班不会重置心情。</dd></div>
                 </dl>
               </section>
 
@@ -626,7 +612,7 @@ export function App() {
                 <span className="about-section__code">STATE</span>
                 <h3>心情与技能</h3>
                 <dl className="about-definitions">
-                  <div><dt>工作消耗</dt><dd>基础为每小时 7% 心情；舱室减耗技能作用于整个舱室。挂机时总控外不会混用减耗与普通干员，避免自动轮换乱轴。</dd></div>
+                  <div><dt>工作消耗</dt><dd>基础为每小时 7% 心情；舱室减耗技能作用于整个舱室。单班错峰时总控外不混用减耗与普通干员；AB 班组允许混用并连续模拟。</dd></div>
                   <div><dt>休息恢复</dt><dd>基础为每小时 12%，再乘总控中枢心情恢复技能加成。未计好友助力和手动补心情。</dd></div>
                   <div><dt>练度</dt><dd>E0–E4 决定两个基建技能槽的解锁与升级；没有匹配技能的干员仍可提供通用进驻加成。</dd></div>
                 </dl>
@@ -637,8 +623,8 @@ export function App() {
                 <h3>大致算法</h3>
                 <ol className="solver-steps">
                   <li><span>01</span><div><strong>建立状态</strong><p>根据练度解析技能，为五个舱室生成候选组合，并固定两个制造配方与一个培养质料类型。</p></div></li>
-                  <li><span>02</span><div><strong>模拟运行</strong><p>逐时间片追踪在岗人数、心情消耗、休息恢复、自动下班与返岗；定点倒班则按用户输入的上线节点整组替换。</p></div></li>
-                  <li><span>03</span><div><strong>搜索启动轴</strong><p>挂机模式枚举 30 分钟网格，经过 180 日预热后再取 90 日稳定周期平均；覆盖率只在产量相同时用于比较。</p></div></li>
+                  <li><span>02</span><div><strong>模拟运行</strong><p>逐时间片追踪在岗人数、心情消耗、休息恢复、自动下班与返岗；AB 舱室到指定时刻整组替换，未上班的班组不提供技能。</p></div></li>
+                  <li><span>03</span><div><strong>比较运行方式</strong><p>自动方案生成单班、双班和混合候选，在半小时网格调整时间及人员。搜索后统一以 180 日预热、90 日采样复核，保留旧单班推荐作为收益基线。</p></div></li>
                   <li><span>04</span><div><strong>比较产出</strong><p>每个生产时间片按（1 + 40% × 在岗人数）×（1 + 当前配方适用技能合计）计算，并将停产时间计入最终日产量。</p></div></li>
                 </ol>
               </section>
@@ -657,6 +643,7 @@ export function App() {
                 <span className="about-section__code">LIMIT</span>
                 <h3>数据与边界</h3>
                 <ul className="about-list">
+                  <li>模拟口径（前瞻预览）：暂按各舱室可独立选择单班或 AB、每人只编入一个班组计算。AB 心情耗尽后休息，仅在本班时段内满心情返岗；换班时允许带剩余心情接班。此规则及半小时粒度、空班支持需实装核验。</li>
                   <li>当前收录 {OPERATORS.length} 名具有可确认基建信息的干员；管理员不参与分配。</li>
                   <li>线索数量按 72 小时基础周期估算，该常量仍待独立核验。定向技能只作 L1 / L2 倾向，不额外增加总量。</li>
                   <li>工具不会读取或控制游戏；游戏机制与数值更新后，结果需随数据版本重新校验。</li>

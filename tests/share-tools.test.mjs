@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { normalizeRoomPlans } from "../src/planningModel.js";
 import {
   buildConfigurationShareUrl,
   decodeSharedConfiguration,
@@ -7,7 +8,7 @@ import {
 } from "../src/shareTools.js";
 
 const configuration = {
-  mode: "shift",
+  mode: "manual",
   selected: ["akekuri", "chen", "perlica"],
   promotions: { akekuri: 2, chen: 4, perlica: 3 },
   manufacturingRecipes: {
@@ -15,8 +16,7 @@ const configuration = {
     "manufacture-b": "weapon-inspection-kit",
   },
   growthCategory: "fungal",
-  axisScope: "facility",
-  loginTimes: ["08:00", "22:30"],
+  roomPlans: normalizeRoomPlans({control:{kind:"single",offsets:[0,2,7]},"manufacture-a":{kind:"dual",start:20,duration:8}}),
 };
 
 test("round-trips a compact shared configuration", () => {
@@ -66,4 +66,19 @@ test("Clipboard API denial falls back and restores keyboard focus", async (t) =>
 
 test("oversized sharing payloads are rejected before decoding", () => {
   assert.equal(decodeSharedConfiguration("a".repeat(65537)), null);
+});
+
+
+test("legacy two-login links migrate to manual AB schedules", () => {
+  const legacy = btoa(JSON.stringify({v:1,m:"s",o:["purrchena"],t:["08:00","22:30"]}));
+  const result = decodeSharedConfiguration(legacy);
+  assert.equal(result.mode, "manual");
+  assert.deepEqual(result.roomPlans.control, {kind:"dual",start:8,duration:14.5,offsets:[0,5,10]});
+  assert.match(result.migrationNotice, /AB/);
+});
+test("legacy three-login and AFK links retain inputs but migrate visibly to automatic planning", () => {
+  for (const m of ["s", "a"]) {
+    const result = decodeSharedConfiguration(btoa(JSON.stringify({v:1,m,o:["purrchena"],p:[["purrchena",2]],t:["00:00","08:00","16:00"],r:["advanced-cognitive-carrier","weapon-inspection-kit"]})));
+    assert.equal(result.mode,"auto");assert.deepEqual(result.selected,["purrchena"]);assert.equal(result.promotions.purrchena,2);assert.ok(result.migrationNotice);
+  }
 });

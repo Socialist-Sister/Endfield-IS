@@ -14,7 +14,7 @@ export function wrapText(value, maxWidth, measure) {
 export function layoutFacilityRow(mode, row, width, measure) {
   const labelWidth = 244;
   const contentX = labelWidth + 1;
-  const compact = mode !== "afk";
+  const compact = row.kind ? row.kind !== "single" : mode !== "afk";
   const padding = compact ? 0 : 14;
   const gap = compact ? 1 : 10;
   const groups = row.groups?.length ? row.groups : [{ label: "—", members: [] }];

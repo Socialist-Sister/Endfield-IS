@@ -438,3 +438,62 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 @media (max-width: 720px) {
   .workspace::before { left: 0; }
 }
+/* Shared planning controls retain the existing square industrial surfaces. */
+.plan-auto-copy { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--control-line); }
+.plan-auto-copy strong { font-size: 14px; }
+.plan-auto-copy p, .plan-help, .plan-preview-note, .plan-migration-note { font-size: 12px; line-height: 1.65; color: var(--control-muted); }
+.plan-preview-note { margin-top: 20px; }
+.plan-migration-note { padding-left: 10px; border-left: 2px solid var(--yellow); }
+.field-group--planning legend { display: flex; justify-content: space-between; }
+.field-group--planning legend small { font-size: 11px; }
+.plan-kind-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 12px 0; }
+.plan-kind-switch button, .plan-apply-all { min-height: 38px; border: 1px solid var(--control-line); background: var(--control-surface); color: white; font-size: 12px; cursor: pointer; transition: transform .2s, background .2s; }
+.plan-kind-switch button.is-active { border-color: var(--yellow); color: var(--yellow); }
+.plan-kind-switch button:hover, .plan-apply-all:hover { transform: translateX(3px); background: var(--control-active); }
+.plan-time-inputs, .plan-offset-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.plan-offset-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.plan-time-inputs label, .plan-offset-inputs label { min-width: 0; display: grid; gap: 7px; font-size: 12px; color: var(--control-muted); }
+.plan-offset-inputs .select-trigger { padding: 0 7px; gap: 3px; font-size: 12px; }
+.plan-duration { display: grid; gap: 8px; margin: 16px 0 9px; }
+.plan-duration > span { display: flex; justify-content: space-between; font-size: 12px; color: var(--control-muted); }
+.plan-duration strong { color: var(--yellow); }
+.plan-duration input { width: 100%; margin: 0; accent-color: var(--yellow); cursor: pointer; }
+.plan-clock { padding: 10px 0; }
+.plan-clock__ticks { display: flex; justify-content: space-between; margin-bottom: 6px; color: #899186; font-family: var(--font-utility); font-size: 11px; }
+.plan-clock__bar { display: flex; height: 23px; border: 1px solid #687168; }
+.plan-clock__bar > span { overflow: hidden; display: grid; place-items: center; font: 700 12px var(--font-utility); transition: width .2s ease; }
+.plan-clock__a { background: var(--yellow); color: var(--ink); }
+.plan-clock__bar > span + span { border-left: 1px solid var(--ink); }
+.plan-clock__b { background: #c9cebf; color: var(--ink); }
+.plan-apply-all { width: 100%; margin-top: 12px; }
+.plan-room-summary { margin-top: 16px; border-top: 1px solid var(--control-line); }
+.plan-room-summary button { width: 100%; padding: 9px 0; display: flex; justify-content: space-between; gap: 5px; border: 0; border-bottom: 1px solid var(--control-line); background: none; color: var(--control-muted); font-size: 12px; cursor: pointer; }
+.plan-room-summary button[aria-pressed="true"] { color: var(--yellow); }
+.plan-adjust { align-self: center; margin-left: 12px; border: 1px solid var(--ink); padding: 9px 14px; background: transparent; color: var(--ink); font-weight: 700; cursor: pointer; transition: transform .2s; }
+.plan-adjust:hover { transform: translateX(3px); }
+.plan-result-note { margin: 12px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.plan-kind-label { display: block; margin-top: 9px; padding-left: 6px; border-left: 3px solid var(--yellow); color: var(--ink); font-size: 12px; font-weight: 700; }
+.plan-dual-result { min-width: 0; }
+.plan-dual-result > .plan-clock { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.assignment-board--planning { margin-top: 16px; border-top: 1px solid var(--line); }
+.assignment-board--planning .lane-assignments--shifts { min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto 1fr auto; }
+.assignment-board--planning .shift-block { display: grid; grid-row: span 3; grid-template-rows: subgrid; }
+.assignment-board--planning .shift-block__header { grid-row: 1; }
+.assignment-board--planning .shift-operators { grid-row: 2; align-content: start; }
+.assignment-board--planning .shift-block__header { align-items: flex-start; flex-direction: column; gap: 6px; }
+.assignment-board--planning .shift-block__header span { font-size: 12px; }
+.assignment-board--planning .shift-block__header strong { font-size: 14px; }
+.plan-fatigue { grid-row: 3; margin: 0; padding: 9px 12px; border-top: 1px solid var(--line); color: #73582a; font-size: 12px; line-height: 1.5; }
+@media (max-width: 1150px) {
+  .assignment-board--planning .shift-operators .assignment-cell--compact > span:not(.operator-mark) { display: flex; }
+  .assignment-board--planning .assignment-cell--compact { align-items: start; }
+}
+@media (max-width: 920px) { .field-group--planning { grid-column: 1 / -1; } }
+@media (max-width: 720px) {
+  .assignment-board--planning .lane-assignments:not(.lane-assignments--shifts) { grid-template-columns: 1fr; }
+  .assignment-board--planning .shift-operators { padding: 7px; }
+  .assignment-board--planning .assignment-cell--compact { display: flex; flex-wrap: wrap; padding: 8px; gap: 6px; }
+  .assignment-board--planning .assignment-cell--compact > span:not(.operator-mark) { width: 100%; }
+  .assignment-board--planning .assignment-skill { grid-template-columns: 1fr; gap: 1px; }
+  .assignment-board--planning .assignment-cell--compact strong { white-space: normal; }
+}
