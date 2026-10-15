@@ -30,6 +30,11 @@ const operator = (id, name, rarity, skills) => ({
 export const FACILITIES = ["总控中枢", "会客室", "制造舱", "培养舱"];
 
 export const OPERATORS = [
+  // Verified against warfarin.wiki/cn/operators/si and perlica.moe/operators/si (2026-10-15).
+  operator("si", "祀", 6, [
+    percentSkill("点器为伥", "会客室", "clue-rate", "线索收集效率", 20, 30),
+    percentSkill("墨魉代劳", "会客室", "mood-drop", "心情消耗", 14, 18, 2, "-"),
+  ]),
   operator("typhoeus", "提弗洛斯", 6, [
     percentSkill("晶石低语", "培养舱", "rare-mineral", "矿物质料培养", 20, 30),
     percentSkill("孢子生灵", "培养舱", "fungal", "菌类质料培养", 20, 30, 2),

@@ -13,7 +13,7 @@ Compare staggered single-team, AB rotation, and mixed schedules automatically, o
 [![Release](https://img.shields.io/badge/Release-v0.3.0-202421?style=flat-square)](https://github.com/Socialist-Sister/Endfield-IS/releases/tag/v0.3.0)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=171918)](https://react.dev/)
 [![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
-[![Operators](https://img.shields.io/badge/Operators-31-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
+[![Operators](https://img.shields.io/badge/Operators-32-F5DD26?style=flat-square&labelColor=171918)](#key-capabilities)
 
 <kbd>Automatic / Manual</kbd> <kbd>Single / AB Rotation</kbd> <kbd>Morale Simulation</kbd> <kbd>Production Estimate</kbd>
 
@@ -68,7 +68,7 @@ These previews show `v0.3.0`: a shared contour background, dark selected-operato
 
 ## Key Capabilities
 
-- **31 assignable operators:** excludes both Administrator variants because reliable infrastructure data is unavailable; operators without matching skills remain valid universal staffing candidates.
+- **32 assignable operators:** excludes both Administrator variants because reliable infrastructure data is unavailable; operators without matching skills remain valid universal staffing candidates.
 - **Promotion-aware skills:** per-operator E0–E4 selection controls the unlock and upgrade state of up to two infrastructure skills. Both slots remain visible in results, with locked or inactive skills muted.
 - **Per-cabin production targets:** Manufacturing Cabins I and II independently keep Advanced Cognitive Carrier, Advanced Battle Record, or Weapon Inspection Kit fixed; Growth Chamber I keeps mineral, vitrified-plant, or fungal material fixed.
 - **Unique cross-facility allocation:** solves the Control Nexus, Reception Room, Manufacturing Cabins I and II, and Growth Chamber I together so an operator is never double-booked at the same time.
@@ -161,6 +161,8 @@ Search and social metadata use the EdgeOne custom domain as the canonical site, 
 Operator portraits are bundled as local static assets so the interface has no runtime dependency on a third-party image service. Portrait mapping was cross-checked against the public [MR-LORD-REX/endfield-builds](https://github.com/MR-LORD-REX/endfield-builds) metadata.
 
 Purrchena’s infrastructure skills and E1–E4 unlocks/upgrades were checked against [Warfarin Wiki](https://warfarin.wiki/cn/operators/purrchena) and cross-checked with [perlica.moe](https://perlica.moe/operators/purrchena). Her portrait comes from the latter and is bundled as a local square crop. Verified on 2026-09-26.
+
+Si’s Reception Room clue-efficiency and Mood Drop skills and E1–E4 unlocks/upgrades were checked against [Warfarin Wiki](https://warfarin.wiki/cn/operators/si) and [perlica.moe](https://perlica.moe/operators/si). Her square icon is bundled unchanged from the latter. Verified on 2026-10-15.
 
 The background texture comes from the official Endfield website. The Dijiang wordmark and vessel icon use user-provided game assets, preserving their original letterforms and silhouette with cropping and palette adaptation only. See the [brand asset notes](docs/brand/README.md) and [background attribution](public/textures/README.md) (Chinese).
 
