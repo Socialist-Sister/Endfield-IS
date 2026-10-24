@@ -446,7 +446,7 @@ export function App() {
 
       <section className="workspace">
         <header className="topbar">
-          <div className="topbar-title"><h1 aria-label="帝江排班计算器"><img className="wordmark-name" src="/dijiang-wordmark.svg?v=4" width="82" height="40" alt="帝江" /><span className="wordmark-function"><span>排班</span><span>计算器</span></span></h1><p className="eyebrow"><span>DIJIANG</span><small>SHIFT CALCULATOR</small></p></div>
+          <div className="topbar-title"><h1 aria-label="帝江排班计算器"><img className="wordmark-name" src="/dijiang-wordmark.png?v=5" width="1050" height="519" alt="帝江" /><span className="wordmark-function"><span>排班</span><span>计算器</span></span></h1><p className="eyebrow"><span>DIJIANG</span><small>SHIFT CALCULATOR</small></p></div>
         </header>
         <div className="calculator-layout">
           {activeSection === "config" && (

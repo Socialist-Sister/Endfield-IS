@@ -6,6 +6,10 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 
 ## Selected product direction
 
+- Mobile wordmark clarity (2026-10-24): the user reports blurred 帝江 lettering on phones. Keep the approved source glyphs, spacing, color and shared title height. The header now uses `public/dijiang-wordmark.png`, a transparent 1050×519 bake of the existing SVG at source resolution, avoiding runtime SVG filter rasterization. Retain the SVG and original supplied PNG as source assets; do not redraw the lettering or enlarge the title as a workaround.
+
+- Mobile wordmark publication (2026-10-24): the user explicitly authorized publishing this fix through GitHub main and the existing EdgeOne/Vercel integrations. Include only the wordmark fix and its documentation; local video, mini-tool and skill files remain separate. No numbered Release was requested.
+
 - Precision/output publication authorization (2026-10-15): the user explicitly requested publishing the 7.2% morale correction and long-run-output-first ranking together. Push through GitHub main and verify both existing deployments; do not create a numbered Release.
 
 - Output objective confirmed (2026-10-15): the user prefers maximum final production even if a crew briefly exhausts before handover. Rank Automatic and Manual candidates by simulated long-run output after all fatigue, empty-shift downtime and recovery debt; never reject or penalize a candidate merely for AB fatigue. Only numerical output ties prefer lower fatigue, then coverage and simpler setup. Keep integer-hour AB times and the corrected 7.2% base drain. Show fatigue in minutes/day with “已计入产量” in results and exports. This supersedes the earlier sustainable-AB-first policy; a game warning is information, not a hard exclusion.
