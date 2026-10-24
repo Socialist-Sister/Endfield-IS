@@ -436,7 +436,7 @@ export function App() {
   return (
     <main className="app-shell">
       <aside className="step-rail" aria-label="计算步骤">
-        <div className="brand-mark"><img src="/dijiang-mark.svg?v=6" width="40" height="40" alt="帝江排班计算器" /></div>
+        <div className="brand-mark"><img src="/dijiang-mark.png?v=7" width="40" height="40" alt="帝江排班计算器" /></div>
         <div className="rail-steps">
           <button className={`rail-step ${activeSection === "config" ? "rail-step--active" : ""}`} aria-current={activeSection === "config" ? "step" : undefined} aria-label="配置计算参数" onClick={() => goToSection("config", configRef)}><SlidersHorizontal size={21} weight="bold" /><span>配置</span></button>
           <button className={`rail-step ${activeSection === "result" ? "rail-step--active" : ""}`} aria-current={activeSection === "result" ? "step" : undefined} aria-label="查看计算结果" onClick={() => goToSection("result", resultRef)} disabled={!calculated} title={calculated ? "查看上次计算结果" : "完成计算后查看结果"}><ChartLineUp size={21} weight="bold" /><span>结果</span></button>

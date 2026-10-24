@@ -336,7 +336,7 @@ export async function downloadResultCard({ mode, summary, growthLabel, rows, dow
 
   const [images, brandImage] = await Promise.all([
     loadMemberImages(rows),
-    loadImage("/dijiang-mark.svg?v=6"),
+    loadImage("/dijiang-mark.png?v=7"),
   ]);
   context.textBaseline = "top";
   context.imageSmoothingEnabled = true;

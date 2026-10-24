@@ -6,6 +6,8 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 
 ## Selected product direction
 
+- Mobile logo clarity and publication (2026-10-24): after confirming the wordmark fix, the user reported the same blur on the game logo and explicitly requested fixing and publishing it directly. Use the precomposited `public/dijiang-mark.png` in navigation and result exports, with PNG favicons at 32/96px and an updated 180px Apple touch icon. Retain the supplied game silhouette, cutouts, graphite/yellow palette and 40px UI size. Keep the original filtered SVG as source only; no redesign. Publish this fix through main to the existing EdgeOne/Vercel sites, without a numbered Release or unrelated local media files.
+
 - Mobile wordmark clarity (2026-10-24): the user reports blurred 帝江 lettering on phones. Keep the approved source glyphs, spacing, color and shared title height. The header now uses `public/dijiang-wordmark.png`, a transparent 1050×519 bake of the existing SVG at source resolution, avoiding runtime SVG filter rasterization. Retain the SVG and original supplied PNG as source assets; do not redraw the lettering or enlarge the title as a workaround.
 
 - Mobile wordmark publication (2026-10-24): the user explicitly authorized publishing this fix through GitHub main and the existing EdgeOne/Vercel integrations. Include only the wordmark fix and its documentation; local video, mini-tool and skill files remain separate. No numbered Release was requested.
